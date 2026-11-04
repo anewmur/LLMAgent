@@ -1,0 +1,26 @@
+# Virtual environments
+.venv/
+venv/
+env/
+.python/
+# IDE
+.idea/
+.vscode/
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+# Secrets
+.env
+.env.*
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+# NOTE: mlflow.db and mlartifacts/ are intentionally tracked
