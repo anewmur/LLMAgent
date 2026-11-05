@@ -1,0 +1,18 @@
+[project]
+name = "llmagent"
+version = "0.1.0"
+description = "Прототип ИИ-агента выпуска документации подземного водопровода (тестовое задание)"
+requires-python = ">=3.10"
+dependencies = [
+    "openai",
+    "pydantic",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--basetemp=.pytest_tmp"
+pythonpath = ["."]
