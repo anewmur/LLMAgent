@@ -24,3 +24,7 @@ Thumbs.db
 desktop.ini
 .DS_Store
 # NOTE: mlflow.db and mlartifacts/ are intentionally tracked
+
+# Local secrets and pytest temp
+api_keys.env
+.pytest_tmp/

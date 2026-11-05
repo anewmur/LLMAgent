@@ -13,7 +13,8 @@ client = OpenAI(api_key=api_key,
                 base_url="https://api.deepseek.com")
 
 
-system_promt = {"role": "system", "content":
+system_promt = {"role": "system",
+                "content":
  "Ты агент выпуска документации трубопровода. "
  "Сообщай только то, что вернули инструменты. "
  "Не делай выводов о влиянии ошибок на результат, если инструмент этого не указал. "
