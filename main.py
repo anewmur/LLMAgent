@@ -13,18 +13,23 @@ client = OpenAI(api_key=api_key,
                 base_url="https://api.deepseek.com")
 
 
-messages = [{"role": "user",
+system_promt = {"role": "system", "content":
+ "Ты агент выпуска документации трубопровода. "
+ "Сообщай только то, что вернули инструменты. "
+ "Не делай выводов о влиянии ошибок на результат, если инструмент этого не указал. "
+ "Не придумывай отсутствующие данные."}
+
+messages = [system_promt,
+            {"role": "user",
              "content": "Рассчитай общую длину трассы из входного файла."}]
 
 while True:
     resp = client.chat.completions.create(
         model="deepseek-flash",
-        messages=messages,
-        tools=TOOLS,
+        messages=messages, tools=TOOLS,
         extra_body={"thinking": {"type": "disabled"}})
-
     msg = resp.choices[0].message
-    messages.append(msg)              # ответ модели добавляем в историю
+    messages.append(msg)
 
     if not msg.tool_calls:            # модель ответила текстом, значит, всё
         print(msg.content)
