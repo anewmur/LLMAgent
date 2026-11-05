@@ -2,7 +2,7 @@ import json
 
 import pytest
 from core.calculations import calculate_slope
-from core.calculations import INPUT_PATH, calculate_route_length
+from core.calculations import INPUT_PATH, calculate_route_length, calculate_route_geometry
 from core.models import Point
 
 
@@ -69,11 +69,16 @@ def test_sections_and_cumsum_distances(
         section["cumsum_dist_m"] for section in sections
     ] == pytest.approx(expected_cumsum_distances)
 
+    assert [
+        section["start_station_m"] for section in sections
+    ] == pytest.approx([0, 60, 120, 200, 280])
+    assert sections[0]["start_id"] == "P0"
+    assert sections[0]["start_station_m"] == 0.0
+    p3_section = next(s for s in sections if s["start_id"] == "P3")
+    assert p3_section["start_station_m"] == 200.0  # ПК 2+00
+
     assert result["length_m"] == pytest.approx(
         sum(expected_lengths)
-    )
-    assert result["average_slope_per_mille"] == pytest.approx(
-        1000 / sum(expected_lengths)
     )
 
     assert [
@@ -96,7 +101,6 @@ def test_missing_axis_affects_only_neighboring_slopes(tmp_path):
     assert result["status"] == "ok"
     assert result["length_m"] == pytest.approx(360.0)
     sections = result["sections"]
-    assert result["average_slope_per_mille"] == pytest.approx(1000 / 360)
     assert sections[2]["slope_per_mille"] is None  # P2–P3
     assert sections[3]["slope_per_mille"] is None  # P3–P4
     assert [
@@ -107,24 +111,22 @@ def test_missing_axis_affects_only_neighboring_slopes(tmp_path):
         for p in result["problems"]
     )
 
-@pytest.mark.parametrize("point_id", ["P0", "P5"])
-def test_average_slope_requires_endpoint_axes(tmp_path, point_id):
-    data = json.loads(INPUT_PATH.read_text(encoding="utf-8"))
-    for point in data["points"]:
-        if point["id"] == point_id:
-            point.pop("axis", None)
-    input_file = tmp_path / "route.json"
-    input_file.write_text(json.dumps(data), encoding="utf-8")
+def test_geometry_preserves_unrounded_lengths_and_stations():
+    points = [
+        Point(id="P0", x=0, y=0),
+        Point(id="P1", x=1, y=1),
+        Point(id="P2", x=2, y=0),
+    ]
 
-    result = calculate_route_length(input_file)
+    result = calculate_route_geometry(points)
 
-    assert result["status"] == "ok"
-    assert result["length_m"] == pytest.approx(360.0)
-    assert result["average_slope_per_mille"] is None
-    assert any(
-        p["where"] == point_id and "axis" in p["message"]
-        for p in result["problems"]
-    )
+    first, second = result["sections"]
+    assert first["length_m"] == 2 ** 0.5
+    assert first["length_m"] != round(first["length_m"], 2)
+    assert first["start_station_m"] == 0.0
+    assert second["start_station_m"] == first["cumsum_dist_m"] == 2 ** 0.5
+    assert result["length_m"] == second["cumsum_dist_m"] == 2 * 2 ** 0.5
+    assert set(result) == {"length_m", "sections"}
 
 
 @pytest.mark.parametrize(

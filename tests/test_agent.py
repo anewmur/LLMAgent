@@ -29,18 +29,18 @@ def test_questions_preserve_history_and_execute_tools(monkeypatch):
         response(tool_name="calculate_route_length"),
         response(content="Длина — 360 м."),
         response(tool_name="calculate_route_length", call_id="call_2"),
-        response(content="Средний уклон — 2,778 промилле."),
+        response(content="Уклон P0–P1 — 3,333 промилле."),
     ]
     messages = [{"role": "system", "content": "Помощник"}]
 
     first = runtime.answer_question(client, messages, "Какая длина?")
-    second = runtime.answer_question(client, messages, "А средний уклон?")
+    second = runtime.answer_question(client, messages, "А уклон P0–P1?")
 
     assert first == "Длина — 360 м."
-    assert second == "Средний уклон — 2,778 промилле."
+    assert second == "Уклон P0–P1 — 3,333 промилле."
     assert handler.call_count == 2
     assert [m["content"] for m in messages if m["role"] == "user"] == [
-        "Какая длина?", "А средний уклон?",
+        "Какая длина?", "А уклон P0–P1?",
     ]
     tools = [m for m in messages if m["role"] == "tool"]
     assert [m["tool_call_id"] for m in tools] == ["call_1", "call_2"]

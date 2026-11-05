@@ -19,24 +19,20 @@ def calculate_route_geometry(points: list[Point]):
         dy = b.y - a.y
         length = (dx ** 2 + dy ** 2) ** 0.5
 
+        start_station = total
         total += length
 
         sections.append({
             "start_id": a.id,
             "end_id": b.id,
             "length_m": length,
+            "start_station_m": start_station,
             "cumsum_dist_m": total,
             "slope_per_mille": calculate_slope(a, b, length),
         })
 
-    # Общий итог выводим из сохранённых длин, не считаем отдельной формулой.
-    total = sum(section["length_m"] for section in sections)
-    if sections:
-        sections[-1]["cumsum_dist_m"] = total
-
     return {
         "length_m": total,
-        "average_slope_per_mille": calculate_slope(points[0], points[-1], total),
         "sections": sections,
     }
 
@@ -60,7 +56,6 @@ def calculate_route_length(input_file=INPUT_PATH):
     return {
         "status": "ok",
         "length_m": geometry["length_m"],
-        "average_slope_per_mille": geometry["average_slope_per_mille"],
         "sections": geometry["sections"],
         "problems": problems,
     }
