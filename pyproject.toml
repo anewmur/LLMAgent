@@ -5,7 +5,7 @@ description = "Прототип ИИ-агента выпуска докумен�
 requires-python = ">=3.10"
 dependencies = [
     "openai",
-    "pydantic",
+    "pydantic>=2",
     "python-dotenv",
 ]
 

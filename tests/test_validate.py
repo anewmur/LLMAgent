@@ -54,3 +54,31 @@ def test_duplicate_point_id(data):
     project, problems = validate_input(changed)
     assert any("повторяется" in p["message"] for p in problems)
 
+
+def test_coincident_neighboring_points(data):
+    changed = copy.deepcopy(data)
+    start = find_point(changed, "P0")
+    end = find_point(changed, "P1")
+    end["x"], end["y"] = start["x"], start["y"]
+
+    project, problems = validate_input(changed)
+
+    assert project is not None
+    assert any(
+        p["where"] == "P0–P1" and p["blocks_length"]
+        and "нулю" in p["message"]
+        for p in problems
+    )
+
+
+def test_route_can_return_to_non_neighboring_point(data):
+    changed = copy.deepcopy(data)
+    start = find_point(changed, "P0")
+    end = find_point(changed, "P2")
+    end["x"], end["y"] = start["x"], start["y"]
+
+    project, problems = validate_input(changed)
+
+    assert project is not None
+    assert problems == []
+

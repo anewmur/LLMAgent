@@ -1,50 +1,61 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
-from openai import OpenAI
-from agent.tools import TOOLS, HANDLERS
-import json
+from openai import APIError, OpenAI
 
-load_dotenv(Path(__file__).resolve().parent/ "api_keys.env")
-
-api_key = os.environ["DEEPSEEK_API_KEY"]
-
-client = OpenAI(api_key=api_key,
-                base_url="https://api.deepseek.com")
+from agent.runtime import answer_question
 
 
-system_promt = {"role": "system",
-                "content":
- "Ты агент выпуска документации трубопровода. "
- "Сообщай только то, что вернули инструменты. "
- "Не делай выводов о влиянии ошибок на результат, если инструмент этого не указал. "
- "Не придумывай отсутствующие данные."
- "Отвечай кратко и по существу запроса."
- "Не описывай внутреннее устройство расчёта и названия полей JSON. "
- "Не упоминай пустые списки замечаний. "
- "Если инструмент вернул проблемы, сообщай их понятным пользователю языком."}
+SYSTEM_PROMPT = (
+    "Ты помощник по расчётам трассы трубопровода. "
+    "Для каждого нового запроса расчёта вызывай нужные инструменты по их описаниям. "
+    "Расчётные значения бери только из результатов инструментов, не вычисляй их сам. "
+    "Для вопроса об отдельной точке или участке найди его в результате. "
+    "Учитывай историю разговора при уточнениях. "
+    "Не придумывай отсутствующие данные и не подменяй неизвестные значения нулём. "
+    "Сообщай проблемы понятным языком; причину отсутствующего результата бери из инструмента. "
+    "Не делай собственных выводов о влиянии ошибок. "
+    "Отвечай кратко, только по вопросу, без названий полей JSON, "
+    "описания устройства расчёта и пустых списков замечаний. "
+    "Общий статус успеха не означает готовность всей документации. "
+    "Различай средний уклон трассы и уклоны участков. "
+    "Положительный уклон означает подъём от начала к концу, отрицательный — спуск. "
+    "Глубина рассчитывается до наружного низа трубы. "
+    "Прочностные расчёты, изменение данных и выпуск документов недоступны. "
+    "Не заявляй об их выполнении."
+)
 
 
-messages = [system_promt,
-            {"role": "user",
-             "content": "Рассчитай общую длину трассы из входного файла."}]
+def main():
+    load_dotenv(Path(__file__).resolve().parent / "api_keys.env")
+    client = OpenAI(
+        api_key=os.environ["DEEPSEEK_API_KEY"],
+        base_url="https://api.deepseek.com",
+    )
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    print("Задайте вопрос о трассе. Для завершения введите «выход».")
 
-while True:
-    resp = client.chat.completions.create(
-        model="deepseek-flash",
-        messages=messages, tools=TOOLS,
-        extra_body={"thinking": {"type": "disabled"}})
-    msg = resp.choices[0].message
-    messages.append(msg)
+    while True:
+        try:
+            question = input("\nВы: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nДиалог завершён.")
+            break
+        if question.lower() in {"выход", "exit", "quit"}:
+            break
+        if not question:
+            continue
 
-    if not msg.tool_calls:            # модель ответила текстом, значит, всё
-        print(msg.content)
-        break
+        turn_messages = list(messages)
+        try:
+            answer = answer_question(client, turn_messages, question)
+        except APIError:
+            print("Агент: Не удалось получить ответ модели.")
+            continue
+        messages = turn_messages
+        print(f"\nАгент: {answer}")
 
-    for call in msg.tool_calls:       # модель просит вызвать функцию
-        func = HANDLERS[call.function.name]
-        args = json.loads(call.function.arguments)
-        result = func(**args)
-        print(f"[журнал] {call.function.name}({args}) -> {result}")
-        messages.append({"role": "tool", "tool_call_id": call.id,
-                         "content": json.dumps(result)})
+
+if __name__ == "__main__":
+    main()
