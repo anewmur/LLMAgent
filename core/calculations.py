@@ -7,15 +7,31 @@ from core.validate import validate_input
 
 INPUT_PATH = Path(__file__).resolve().parent.parent/ "input" / "input.json"
 
-def calculate_length(points: list[Point]):
+def calculate_route_geometry(points: list[Point]):
+    sections = []
     total = 0.0
+
     for i in range(len(points) - 1):
         a = points[i]
         b = points[i + 1]
+
         dx = b.x - a.x
         dy = b.y - a.y
-        total += (dx ** 2 + dy ** 2) ** 0.5
-    return total
+        length = (dx ** 2 + dy ** 2) ** 0.5
+
+        total += length
+
+        sections.append({
+            "start_id": a.id,
+            "end_id": b.id,
+            "length_m": length,
+            "cumsum_dist_m": total,
+        })
+
+    return {
+        "length_m": total,
+        "sections": sections,
+    }
 
 
 def calculate_route_length(input_file=INPUT_PATH):
@@ -26,17 +42,16 @@ def calculate_route_length(input_file=INPUT_PATH):
         return {"status": "error", "problems": problems}
 
     if any(problem["blocks_length"] for problem in problems):
-        return {
-                "status": "error",
-                "problems": problems,
-        }
+        return {"status": "error", "problems": problems}
+
+    geometry = calculate_route_geometry(project.points)
 
     return {
         "status": "ok",
-        "length_m": calculate_length(project.points),
-        "problems_for_later": problems,  # не блокируют расчет длины
+        "length_m": geometry["length_m"],
+        "sections": geometry["sections"],
+        "problems_for_later": problems,
     }
-
 
 if __name__ == "__main__":
     input_file = Path(__file__).resolve().parent.parent / "input" / "input.json"

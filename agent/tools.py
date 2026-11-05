@@ -1,5 +1,5 @@
 from pathlib import Path
-from core.calculations import calculate_route_length, INPUT_PATH
+from core.calculations import calculate_route_length
 
 TOOLS = [ {
         "type": "function",
@@ -20,5 +20,4 @@ TOOLS = [ {
 ]
 
 
-BAD_FILE = INPUT_PATH.parent / "input_no_p3_axis.json"
 HANDLERS = {"calculate_route_length": calculate_route_length}
