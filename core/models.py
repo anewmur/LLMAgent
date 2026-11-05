@@ -1,12 +1,11 @@
-from pydantic import BaseModel
-
+from pydantic import BaseModel, Field
 
 class Point(BaseModel):
     id: str
-    x: float
-    y: float
+    x: float = Field(allow_inf_nan=False)
+    y: float = Field(allow_inf_nan=False)
     ground: float | None = None
-    axis: float | None = None   # None, если отметки нет (сценарий 3)
+    axis: float | None = None
 
 
 class Bend(BaseModel):
@@ -31,5 +30,5 @@ class ObjectInfo(BaseModel):
 class Project(BaseModel):
     object: ObjectInfo
     pipe: Pipe
-    points: list[Point]
+    points: list[Point] = Field(min_length=2)
     bends: list[Bend]

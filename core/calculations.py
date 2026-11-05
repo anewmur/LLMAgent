@@ -1,18 +1,19 @@
 import json
 from copy import deepcopy
 from pathlib import Path
+from core.models import Point
 from core.validate import validate_input
 
 
 INPUT_PATH = Path(__file__).resolve().parent.parent/ "input" / "input.json"
 
-def calculate_length(points):
+def calculate_length(points: list[Point]):
     total = 0.0
     for i in range(len(points) - 1):
         a = points[i]
         b = points[i + 1]
-        dx = b["x"] - a["x"]
-        dy = b["y"] - a["y"]
+        dx = b.x - a.x
+        dy = b.y - a.y
         total += (dx ** 2 + dy ** 2) ** 0.5
     return total
 
@@ -20,13 +21,20 @@ def calculate_length(points):
 def calculate_route_length(input_file=INPUT_PATH):
     data = json.loads(input_file.read_text(encoding="utf-8"))
     project, problems = validate_input(data)
+
     if project is None:
         return {"status": "error", "problems": problems}
+
+    if any(problem["blocks_length"] for problem in problems):
+        return {
+                "status": "error",
+                "problems": problems,
+        }
+
     return {
         "status": "ok",
-        "length_m": calculate_length(data["points"]),
-        "note": "Длина считается только по X и Y в плане. Другие отметки на неё не влияют.",
-        "problems_for_later": problems,  # понадобятся для профиля, не для длины
+        "length_m": calculate_length(project.points),
+        "problems_for_later": problems,  # не блокируют расчет длины
     }
 
 

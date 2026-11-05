@@ -21,4 +21,4 @@ TOOLS = [ {
 
 
 BAD_FILE = INPUT_PATH.parent / "input_no_p3_axis.json"
-HANDLERS = {"calculate_route_length": lambda: calculate_route_length(BAD_FILE)}
+HANDLERS = {"calculate_route_length": calculate_route_length}
