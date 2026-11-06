@@ -17,6 +17,8 @@ class PlanDrawing:
         self.project = project
         self.scale = 1000
         self.mm_per_meter = 1000 / self.scale
+        self.sheet = Sheet(project.object.project_code + "-НВ", project.object.name,
+                           f"План сетей водоснабжения (1:{self.scale})", 2, "")
         self.coordinates = self.place_points()
         self.sections = calculate_route_geometry(project.points)["sections"]
         self.bends = {bend.at: bend for bend in project.bends}
@@ -31,14 +33,15 @@ class PlanDrawing:
         width = (max_x - min_x) * self.mm_per_meter
         height = (max_y - min_y) * self.mm_per_meter
 
-        # Свободное поле над штампом: x=30..405, y=35..227 мм.
-        if width > 375 or height > 192:
+        # Свободное поле над основной надписью: x=30..405, y=35..227 мм.
+        available_width = self.sheet.width - 45
+        if width > available_width or height > 192:
             raise ValueError(
                 "Трасса не помещается на A3 при масштабе 1:1000. "
                 "Требуется другой формат или масштаб."
             )
 
-        left = 30 + (375 - width) / 2
+        left = 30 + (available_width - width) / 2
         top = 35 + (192 - height) / 2
         coordinates = []
         for point in self.project.points:
@@ -49,7 +52,7 @@ class PlanDrawing:
 
     def draw_geometry(self):
         points = " ".join(f"{x},{y}" for x, y in self.coordinates)
-        # REQ-014, REQ-086: проектируемая подземная труба, без знаков колодцев.
+        # проектируемая подземная труба, без знаков колодцев.
         return "\n".join([
             f'<g id="route-geometry" data-scale="{self.scale}">',
             f'<polyline id="route-line" points="{points}" fill="none" stroke="black" '
@@ -73,7 +76,7 @@ class PlanDrawing:
         neighbors = self.coordinates[max(0, index - 1):index + 2]
         upper = [(px, py) for px, py in neighbors if py < y]
         # Подпись выше точки уводим от участка, направленного вверх.
-        left = upper[0][0] >= x if upper else x > 217.5
+        left = upper[0][0] >= x if upper else x > (self.sheet.width + 15) / 2
         return (x - 4, "end") if left else (x + 4, "start")
 
     def draw_point_labels(self):
@@ -92,7 +95,7 @@ class PlanDrawing:
         return "\n".join(elements)
 
     def draw_pipe_label(self):
-        """REQ-011, REQ-017: одна подпись трубы вдоль самого длинного участка."""
+        """одна подпись трубы вдоль самого длинного участка."""
         index = max(range(len(self.sections)), key=lambda i: self.sections[i]["length_m"])
         x1, y1 = self.coordinates[index]
         x2, y2 = self.coordinates[index + 1]
@@ -104,10 +107,33 @@ class PlanDrawing:
         wall = f"{pipe.wall_mm:g}".replace(".", ",")
         sdr = f"{pipe.sdr:g}".replace(".", ",")
         text = f"В1 — {pipe.material} SDR {sdr} ⌀{diameter}×{wall}"
+        if abs(x2 - x1) < 1e-7:
+            return self.vertical_pipe_label(text, (x1 + x2) / 2, (y1 + y2) / 2)
         return (
-            f'<text data-kind="pipe-label" text-anchor="middle" x="0" y="-8" '
+            f'<text data-kind="pipe-label" font-family="DejaVu Sans" text-anchor="middle" x="0" y="15" '
             f'transform="translate({(x1 + x2) / 2:g} {(y1 + y2) / 2:g}) rotate({angle:g})">'
             f'{escape(text)}</text>'
+        )
+
+    def draw_coordinates(self):
+        elements = []
+        for i, (point, (x, y)) in enumerate(zip(self.project.points, self.coordinates)):
+            neighbors = self.coordinates[max(0, i - 1):i + 2]
+            label_y = y + 15 if any(py < y for px, py in neighbors) else y - 16
+            label = f"X={format_number(point.x)}, Y={format_number(point.y)}"
+            elements.append(
+                f'<text data-kind="coordinates" data-point-id={quoteattr(point.id)} '
+                f'x="{x}" y="{label_y}" font-size="2.5" text-anchor="middle">{label}</text>'
+            )
+        return "\n".join(elements)
+
+    def vertical_pipe_label(self, text, x, y):
+        direction = 1 if x < 120 else -1
+        anchor = "start" if direction == 1 else "end"
+        return (
+            f'<g><path d="M {x},{y} h {direction * 8}" stroke="black" stroke-width="0.2"/>'
+            f'<text data-kind="pipe-label" font-family="DejaVu Sans" font-size="3.5" '
+            f'x="{x + direction * 10}" y="{y - 1.2}" text-anchor="{anchor}">{escape(text)}</text></g>'
         )
 
     def draw_legend(self):
@@ -130,26 +156,23 @@ class PlanDrawing:
         return "\n".join(elements)
 
     def render(self):
-        svg = Sheet(
-            self.project.object.project_code + "-НВ", self.project.object.name,
-            f"План сетей водоснабжения (1:{self.scale})", 2, "",
-        ).render()
-        # REQ-001, REQ-027, REQ-073, REQ-096: округляется только вывод подписей.
+        svg = self.sheet.render()
+        # округляется только вывод подписей.
         labels = '<g id="route-labels" font-family="Arial, sans-serif" font-size="3.5" fill="black">'
         elements = [
             self.draw_geometry(), labels,
-            self.draw_point_labels(), self.draw_lengths(), self.draw_pipe_label(), '</g>',
+            self.draw_point_labels(), self.draw_coordinates(), self.draw_lengths(), self.draw_pipe_label(), '</g>',
             self.draw_legend(),
         ]
         return svg.replace("</svg>", "\n".join(elements) + "\n</svg>")
 
 
-def create_plan(input_file=INPUT_PATH, output_file=INPUT_PATH.parent.parent / "output" / "plan.svg"):
+def create_plan(input_file=INPUT_PATH, output_file=INPUT_PATH.parent.parent / "tmp" / "plan.svg"):
     project, problems = load_project(Path(input_file))
     if project is None or any(p["blocks_length"] for p in problems):
         return {"status": "error", "problems": problems}
     bend_ids = {bend.at for bend in project.bends}
-    if any(p["level"] == "error" and p["where"] in bend_ids for p in problems):
+    if any(p["blocks_quantities"] and p["where"] in bend_ids for p in problems):
         return {"status": "error", "problems": problems}
 
     try:

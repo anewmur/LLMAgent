@@ -1,0 +1,30 @@
+<g xmlns="http://www.w3.org/2000/svg" id="profile-grid" transform="translate(${left} ${top})"
+   font-family="Arial, sans-serif" font-size="${font_size}" fill="black">
+  <!-- Форма 2 с Изменением 1; дополнительная строка «Пикеты». -->
+  <path id="grid-outline" d="M 0,0 H ${width} V 151 H 0 Z M 70,0 V 151"
+        fill="none" stroke="black" stroke-width="0.35"/>
+  <path d="M 0,15 H ${width} M 0,30 H ${width} M 0,45 H ${width} M 0,65 H ${width}
+           M 0,77 H ${width} M 0,99 H ${width} M 0,111 H ${width} M 0,131 H ${width}"
+        fill="none" stroke="black" stroke-width="0.35"/>
+  <g id="grid-headings">
+    <text x="2" y="4"><tspan x="2">Проектная отметка низа</tspan><tspan x="2" dy="5">трубы или низа лотка</tspan><tspan x="2" dy="5">колодца, м</tspan></text>
+    <text x="2" y="21"><tspan x="2">Проектная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
+    <text x="2" y="36"><tspan x="2">Натурная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
+    <text x="2" y="52"><tspan x="2">Обозначение трубы</tspan><tspan x="2" dy="6">и тип изоляции</tspan></text>
+    <text x="2" y="73">Основание</text>
+    <text x="2" y="86"><tspan x="2">Уклон, ‰;</tspan><tspan x="2" dy="6">длина, м</tspan></text>
+    <text x="2" y="107">Расстояние, м</text>
+    <text x="2" y="118"><tspan x="2">Номер колодца,</tspan><tspan x="2" dy="6">точки, угла поворота</tspan></text>
+    <text x="2" y="143">Пикеты</text>
+  </g>
+  ${values}
+  ${sections}
+  <g font-family="DejaVu Sans" text-anchor="middle">
+    <text data-kind="pipe-description" x="${middle}" y="51" font-size="${title_size}">${pipe_name}</text>
+    <text x="${middle}" y="57" font-size="${title_size}">${pipe_size}</text>
+    <text x="${middle}" y="63">Без изоляции</text>
+  </g>
+  <text x="0" y="-20">М 1:${horizontal_scale} по горизонтали</text>
+  <text x="0" y="-13">М 1:${vertical_scale} по вертикали</text>
+  <text x="0" y="-6">УГ ${datum}</text>
+</g>

@@ -1,15 +1,14 @@
 import csv
 from pathlib import Path
 from string import Template
-from textwrap import wrap
-from xml.sax.saxutils import escape
 
 from core.calculations import INPUT_PATH, calculate_material_quantities, load_project
 from core.formatting import format_number
 from core.sheet import Sheet
+from core.tables import TableCell
 
 
-# REQ-048, REQ-052: форма 1 ГОСТ 21.110-2013, ширины граф в миллиметрах.
+# форма 1 ГОСТ 21.110-2013, ширины граф в миллиметрах.
 HEADERS = [
     "Поз.", "Наименование и техническая характеристика",
     "Тип, марка, обозначение документа, опросного листа",
@@ -17,28 +16,28 @@ HEADERS = [
     "Масса 1 ед., кг", "Примечание",
 ]
 WIDTHS = [20, 130, 60, 35, 45, 20, 20, 25, 40]
-OUTPUT_DIR = INPUT_PATH.parent.parent / "output"
+OUTPUT_DIR = INPUT_PATH.parent.parent / "tmp"
 TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "specification.svg"
 
 
 class Specification:
     """Подготовка и сохранение спецификации по постоянному SVG-макету."""
 
-    def __init__(self, input_file=INPUT_PATH,
+    def __init__(self, project=INPUT_PATH,
                  title="Спецификация оборудования, изделий и материалов", number="", total=1):
-        self.input_file = Path(input_file)
+        self.project, self.problems = load_project(project)
         self.title = title
         self.number = number
         self.total = total
-        self.project = None
         self.quantities = None
         self.rows = []
 
     def create(self, output_dir=OUTPUT_DIR):
-        self.quantities = calculate_material_quantities(self.input_file)
+        if self.project is None:
+            return {"status": "error", "problems": self.problems}
+        self.quantities = calculate_material_quantities(self.project)
         if self.quantities["status"] == "error":
             return self.quantities
-        self.project, _ = load_project(self.input_file)
         self.rows = self.build_rows()
         try:
             svg = self.render_svg()
@@ -58,7 +57,7 @@ class Specification:
         sdr = f'{pipe["sdr"]:g}'.replace(".", ",")
         rows = []
 
-        # REQ-044, REQ-045, REQ-046: изделия перед трубой; отводы в штуках.
+        # изделия перед трубой; отводы в штуках.
         # ГОСТ 21.704-2011, п. 7.4: исключение не применяется — отводы заданы в ТЗ.
         for bend in self.quantities["bends"]:
             angle = f'{bend["angle_deg"]:g}'.replace(".", ",")
@@ -68,7 +67,7 @@ class Specification:
                 "Материал и SDR приняты как у трубы",
             ])
 
-        # REQ-053, REQ-054, REQ-055: характеристики из входа, неизвестные поля пустые.
+        # характеристики из входа, неизвестные поля пустые.
         rows.append([
             str(len(rows) + 1), f'Труба {pipe["material"]} SDR {sdr} {diameter}×{wall}',
             pipe.get("standard") or "", "", "", "м", format_number(pipe["quantity_m"]), "",
@@ -76,32 +75,12 @@ class Specification:
         ])
         return rows
 
-    def cell_lines(self, value, width, centered):
-        """Одинаковые переносы для вывода текста и определения высоты строки."""
-        return wrap(
-            str(value), width=max(4, int((width - 4) / 1.7)),
-            break_long_words=not centered,
-        )
-
-    def cell_text(self, value, x, y, width, height, centered):
-        """Перенос текста внутри ячейки таблицы."""
-        lines = self.cell_lines(value, width, centered)
-        elements = []
-        for i, line in enumerate(lines):
-            text_x = x + width / 2 if centered else x + 2
-            text_y = y + height / 2 + 1.2 + (i - (len(lines) - 1) / 2) * 4
-            anchor = "middle" if centered else "start"
-            elements.append(
-                f'<text x="{text_x:g}" y="{text_y:g}" text-anchor="{anchor}">{escape(line)}</text>'
-            )
-        return "\n".join(elements)
-
     def calculate_row_heights(self):
         heights = []
         for row in self.rows:
             height = 8
             for column, (value, width) in enumerate(zip(row, WIDTHS)):
-                lines = self.cell_lines(value, width, centered=column not in (1, 8))
+                lines = TableCell(value, 0, 0, width, 8, centered=column not in (1, 8)).lines
                 height = max(height, len(lines) * 4)
             heights.append(height)
         remaining = 160 - sum(heights)
@@ -119,7 +98,7 @@ class Specification:
             elements.append(f'<g id="spec-row-{i + 1}">')
             x = 20
             for column, (value, width) in enumerate(zip(row, WIDTHS)):
-                elements.append(self.cell_text(value, x, y, width, height, centered=column not in (1, 8)))
+                elements.append(TableCell(value, x, y, width, height, centered=column not in (1, 8)).render())
                 x += width
             elements.append('</g>')
             y += height
@@ -136,14 +115,14 @@ class Specification:
         for header, width in zip(HEADERS, WIDTHS):
             if x > 20:
                 elements.append(f'<path d="M {x:g},30 V 222" stroke="black" stroke-width="0.3"/>')
-            elements.append(self.cell_text(header, x, 30, width, 32, centered=True))
+            elements.append(TableCell(header, x, 30, width, 32, centered=True).render())
             x += width
         return "\n".join(elements)
 
     def render_svg(self):
         heights = self.calculate_row_heights()
         template = Template(TEMPLATE_PATH.read_text(encoding="utf-8"))
-        table = template.substitute(
+        table = template.safe_substitute(
             table_width=f"{sum(WIDTHS):g}",
             table_header=self.table_header_svg(),
             table_body=self.table_body_svg(heights),
@@ -167,8 +146,9 @@ class Specification:
         return {"csv": str(csv_path), "svg": str(svg_path)}
 
 
-def create_specification(input_file=INPUT_PATH, output_dir=OUTPUT_DIR):
-    return Specification(input_file).create(output_dir)
+def create_specification(input_file=INPUT_PATH, output_dir=OUTPUT_DIR,
+                         title="Спецификация оборудования, изделий и материалов", number="", total=1):
+    return Specification(input_file, title, number, total).create(output_dir)
 
 
 if __name__ == "__main__":

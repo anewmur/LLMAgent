@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from openai import APIError, OpenAI
 
 from agent.runtime import answer_question
+from core.session import RouteSession
 
 
 SYSTEM_PROMPT = (
@@ -21,12 +22,28 @@ SYSTEM_PROMPT = (
     "Общий статус успеха не означает готовность всей документации. "
     "Положительный уклон означает подъём от начала к концу, отрицательный — спуск. "
     "Глубина рассчитывается до наружного низа трубы. "
-    "Прочностные расчёты, изменение данных и выпуск документов недоступны. "
-    "Не заявляй об их выполнении."
+    "Для правки точки используй update_point: name — имя, z — отметка оси трубы. "
+    "Если пользователь просит удалить отметку, передай z=null. "
+    "При ошибке проверки сообщи её причину и задай уточняющий вопрос; изменение не выполнено. "
+    "Конфликт материалов нельзя исправить изменением координат точки. "
+    "После успешной правки покажи перечень изменений из инструмента. "
+    "Состояние трассы хранится в текущей сессии. Прочностные расчёты недоступны."
 )
 
 
 def main():
+    session = RouteSession()
+    initial = session.release()
+    if initial["status"] == "error":
+        print("Начальный выпуск не выполнен:", initial.get("problems") or initial.get("message"))
+    handlers = {
+        "calculate_route_length": session.calculate_route_length,
+        "calculate_pipe_levels": session.calculate_pipe_levels,
+        "calculate_material_quantities": session.calculate_material_quantities,
+        "change_profile_font": session.change_profile_font,
+        "update_point": session.update_point,
+        "release_documents": session.release,
+    }
     load_dotenv(Path(__file__).resolve().parent / "api_keys.env")
     client = OpenAI(
         api_key=os.environ["DEEPSEEK_API_KEY"],
@@ -46,13 +63,11 @@ def main():
         if not question:
             continue
 
-        turn_messages = list(messages)
         try:
-            answer = answer_question(client, turn_messages, question)
+            answer = answer_question(client, messages, question, handlers, tool_log=session.tool_log)
         except APIError:
-            print("Агент: Не удалось получить ответ модели.")
+            print("Агент: Не удалось получить ответ модели. Результаты выполненных инструментов сохранены.")
             continue
-        messages = turn_messages
         print(f"\nАгент: {answer}")
 
 

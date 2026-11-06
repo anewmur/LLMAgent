@@ -1,0 +1,14 @@
+<g xmlns="http://www.w3.org/2000/svg" id="general-data" font-family="Arial, sans-serif" fill="black">
+  <g font-size="3.5">
+    <text x="30" y="32">Ведомость рабочих чертежей основного комплекта</text>
+    <text x="30" y="92">Ведомость основных комплектов рабочих чертежей</text>
+    <text x="230" y="32">Ведомость ссылочных и прилагаемых документов</text>
+    <text x="30" y="143">Общие указания</text>
+    <text x="230" y="185">Принятые допущения</text>
+  </g>
+  <g id="drawing-register" transform="translate(30 37)">${drawings}</g>
+  <g transform="translate(30 97)">${sets}</g>
+  <g id="reference-register" transform="translate(230 37)">${references}</g>
+  <g id="general-notes">${notes}</g>
+  <g id="general-assumptions">${assumptions}</g>
+</g>

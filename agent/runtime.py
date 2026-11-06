@@ -1,9 +1,9 @@
 import json
 
-from agent.tools import HANDLERS, TOOLS
+from agent.tools import TOOLS
 
 
-def answer_question(client, messages, question, max_rounds=42):
+def answer_question(client, messages, question, handlers, max_rounds=42, tool_log=None):
     messages.append({"role": "user", "content": question})
     for _ in range(max_rounds):
         response = client.chat.completions.create(
@@ -18,11 +18,14 @@ def answer_question(client, messages, question, max_rounds=42):
 
         for call in message.tool_calls:
             try:
-                handler = HANDLERS[call.function.name]
+                handler = handlers[call.function.name]
                 args = json.loads(call.function.arguments)
                 result = handler(**args)
             except (KeyError, OSError, ValueError, TypeError) as error:
                 result = {"status": "error", "message": str(error)}
+            if tool_log is not None:
+                tool_log.append({"tool": call.function.name, "arguments": call.function.arguments, "result": result})
+                print(f"[журнал] {call.function.name}({call.function.arguments}) -> {result.get('status', 'ok')}")
             messages.append({
                 "role": "tool", "tool_call_id": call.id,
                 "content": json.dumps(result, ensure_ascii=False),

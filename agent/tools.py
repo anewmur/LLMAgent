@@ -1,10 +1,3 @@
-from core.calculations import (
-    calculate_route_length,
-    calculate_pipe_levels,
-    calculate_material_quantities,
-)
-
-
 TOOLS = [
     {
         "type": "function",
@@ -59,11 +52,54 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "change_profile_font",
+            "description": (
+                "Увеличить или уменьшить базовый шрифт профиля на одну ступень "
+                "ряда 2.5, 3.5, 5, 7, 10, 14 мм и перевыпустить комплект. "
+                "direction=1 — увеличить, direction=-1 — уменьшить. "
+                "Если выбранный размер не помещается в таблицу, инструмент вернёт причину."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"direction": {"type": "integer", "enum": [-1, 1]}},
+                "required": ["direction"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_point",
+            "description": (
+                "Изменить точку текущей трассы и перевыпустить комплект. "
+                "name — имя точки, x и y — координаты в плане, z — отметка оси трубы, в метрах. "
+                "Неуказанные поля остаются прежними. Явный null — попытка удалить значение. "
+                "Если проверка не пройдена, проект и документы не меняются; уточни данные у пользователя."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "x": {"type": ["number", "null"]},
+                    "y": {"type": ["number", "null"]},
+                    "z": {"type": ["number", "null"]},
+                },
+                "required": ["name"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "release_documents",
+            "description": "Перевыпустить комплект документов по текущим данным сессии.",
+            "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
+        },
+    },
+
 ]
-
-
-HANDLERS = {
-    "calculate_route_length": calculate_route_length,
-    "calculate_pipe_levels": calculate_pipe_levels,
-    "calculate_material_quantities": calculate_material_quantities,
-}

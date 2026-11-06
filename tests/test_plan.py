@@ -40,6 +40,11 @@ def test_plan_geometry_scale_direction_and_fit(route_data, tmp_path):
         assert "OTHER-03-\u041d\u0412" in text
         assert "\u0414\u0440\u0443\u0433\u043e\u0439 \u043e\u0431\u044a\u0435\u043a\u0442" in text
         assert "1:1000" in text
+        labels = root.findall(".//s:text[@data-kind='coordinates']", ns)
+        assert [e.get("data-point-id") for e in labels] == [p["id"] for p in data["points"]]
+        assert [e.text for e in labels] == [
+            f'X={p["x"]:.2f}, Y={p["y"]:.2f}'.replace(".", ",") for p in data["points"]
+        ]
 
     # \u0411\u043e\u043b\u044c\u0448\u0430\u044f \u0442\u0440\u0430\u0441\u0441\u0430 \u043d\u0435 \u0434\u043e\u043b\u0436\u043d\u0430 \u043c\u043e\u043b\u0447\u0430 \u043e\u0431\u0440\u0435\u0437\u0430\u0442\u044c\u0441\u044f \u0438\u043b\u0438 \u043c\u0435\u043d\u044f\u0442\u044c \u043c\u0430\u0441\u0448\u0442\u0430\u0431.
     data["points"][-1]["x"] += 1000
@@ -81,6 +86,11 @@ def test_plan_labels_follow_calculated_lengths_and_stations(route_data, tmp_path
         ]
         line = root.find("s:g[@id='route-geometry']/s:polyline", ns)
         coordinates = [tuple(map(float, pair.split(","))) for pair in line.get("points").split()]
+        assert coordinates[-1][0] - coordinates[0][0] == p5_x
+        assert all(30 <= x <= 405 and 35 <= y <= 227 for x, y in coordinates)
+        if p5_x == 300:
+            pipe_label = labels.find(".//s:text[@data-kind='pipe-label']", ns)
+            assert coordinates[-1][1] + float(pipe_label.get("y")) > float(lengths[-1].get("y")) + 5
         for (x, y), name, station in zip(coordinates, names, stations):
             assert float(name.get("y")) < float(station.get("y")) < y
         assert float(lengths[0].get("y")) > coordinates[0][1]
@@ -104,7 +114,7 @@ def test_plan_symbols_and_legend_use_input(route_data, tmp_path):
     assert line.get("stroke-dasharray") == "6 2"
     assert not root.findall(".//s:circle", ns)
     label = root.find(".//s:text[@data-kind='pipe-label']", ns)
-    assert label.text == "В1 — ПЭ 100 & тест SDR 17 ⌀160×9,5"
+    assert "".join(label.itertext()) == "В1 — ПЭ 100 & тест SDR 17 ⌀160×9,5"
     names = root.findall(".//s:text[@data-kind='point-name']", ns)
     assert [e.text for e in names][2:4] == ["P2 / УП1", "P3 / УП2"]
     legend = root.find("s:g[@id='plan-legend']", ns)

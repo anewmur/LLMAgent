@@ -8,8 +8,9 @@ dependencies = [
     "pydantic>=2",
     "python-dotenv",
     "reportlab",
-    "svglib",
+    "svglib>=2.4,<3",
     "pypdf",
+    "PyYAML>=6",
 ]
 
 [project.optional-dependencies]
@@ -17,5 +18,4 @@ dev = ["pytest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--basetemp=.pytest_tmp"
 pythonpath = ["."]

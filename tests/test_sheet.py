@@ -1,13 +1,13 @@
 from xml.etree import ElementTree as ET
 
-from core.sheet import create_sheet
+from core.sheet import Sheet
 
 
 def test_a3_sheet_template():
     title = "План трассы & профиль"
     designation = "OTHER-02-НВ"
     object_name = "Другой объект $100 ${title} & участок"
-    svg = create_sheet(designation, object_name, title, 2, 4)
+    svg = Sheet(designation, object_name, title, 2, 4).render()
     root = ET.fromstring(svg)
     ns = {"svg": "http://www.w3.org/2000/svg"}
 

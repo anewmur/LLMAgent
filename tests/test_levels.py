@@ -4,6 +4,7 @@ import pytest
 
 from core.calculations import calculate_pipe_levels
 from core.validate import validate_input
+from core.formatting import format_number
 
 
 @pytest.mark.parametrize(
@@ -74,3 +75,11 @@ def test_nonpositive_diameter_is_rejected(route_data, diameter_mm):
 
     assert project is None
     assert any("outer_diameter_mm" in p["where"] for p in problems)
+
+
+def test_derived_levels_keep_decimal_half_up(input_file):
+    levels = calculate_pipe_levels(input_file)["point_levels"]
+    p3 = next(point for point in levels if point["point_id"] == "P3")
+    assert p3["bottom_m"] == 100.545
+    assert format_number(p3["bottom_m"]) == "100,55"
+    assert format_number(p3["depth_to_bottom_m"]) == "2,86"

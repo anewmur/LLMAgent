@@ -1,7 +1,8 @@
 import json
+from decimal import Decimal
 from collections import Counter
 from pathlib import Path
-from core.models import Point
+from core.models import Point, Project
 from core.validate import validate_input
 
 
@@ -38,7 +39,10 @@ def calculate_route_geometry(points: list[Point]):
 
 
 def load_project(input_file=INPUT_PATH):
-    data = json.loads(input_file.read_text(encoding="utf-8"))
+    """Проверить проект в памяти или прочитать начальный JSON."""
+    if isinstance(input_file, Project):
+        return validate_input(input_file.model_dump())
+    data = json.loads(Path(input_file).read_text(encoding="utf-8"))
     return validate_input(data)
 
 
@@ -103,7 +107,7 @@ def calculate_material_quantities(input_file=INPUT_PATH):
 
 def calculate_point_levels(points: list[Point], outer_diameter_mm: float):
     # расчёт высотных значений в каждой точке: отметки наружного низа трубы и глубины от земли до этого низа.
-    radius_m = outer_diameter_mm / 2000
+    radius_m = Decimal(str(outer_diameter_mm)) / 2000
     levels = []
 
     for point in points:
@@ -111,9 +115,11 @@ def calculate_point_levels(points: list[Point], outer_diameter_mm: float):
         depth = None
 
         if point.axis is not None:
-            bottom = point.axis - radius_m
+            # Сохраняем десятичную точность исходных отметок до округления вывода.
+            bottom_decimal = Decimal(str(point.axis)) - radius_m
+            bottom = float(bottom_decimal)
             if point.ground is not None:
-                depth = point.ground - bottom
+                depth = float(Decimal(str(point.ground)) - bottom_decimal)
 
         levels.append({
             "point_id": point.id,
@@ -132,5 +138,6 @@ def calculate_slope(start: Point, end: Point, length_m: float):
     if start.axis is None or end.axis is None:
         return None
 
-    return (end.axis - start.axis) / length_m * 1000
+    difference = Decimal(str(end.axis)) - Decimal(str(start.axis))
+    return float(difference / Decimal(str(length_m)) * 1000)
 
