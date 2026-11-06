@@ -1,0 +1,13 @@
+<g xmlns="http://www.w3.org/2000/svg" id="plan-legend" transform="translate(30 239)"
+   font-family="Arial, sans-serif" font-size="3.5" fill="black">
+  <!-- REQ-011, REQ-012, REQ-014, REQ-086, REQ-096. В1 — допущение PC-06. -->
+  <text x="0" y="0" font-size="4">Условные обозначения</text>
+  <path data-kind="pipe-symbol" d="M 0,10 H 25" fill="none" stroke="black"
+        stroke-width="0.7" stroke-dasharray="6 2"/>
+  <text x="32" y="11">В1 — проектируемый подземный водопровод</text>
+  <path data-kind="bend-symbol" d="M 0,23 H 17 V 16" fill="none" stroke="black"
+        stroke-width="0.7" stroke-dasharray="6 2" stroke-linejoin="miter"/>
+  <text x="32" y="24">УП — угол поворота, отвод</text>
+  <text x="0" y="37">P0…Pn</text>
+  <text x="32" y="37">Характерные точки трассы</text>
+</g>
