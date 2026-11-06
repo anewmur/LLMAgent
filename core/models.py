@@ -18,6 +18,7 @@ class Pipe(BaseModel):
     sdr: float
     outer_diameter_mm: float = Field(gt=0, allow_inf_nan=False)
     wall_mm: float
+    standard: str | None = None
 
 
 class ObjectInfo(BaseModel):

@@ -1,12 +1,15 @@
 [project]
 name = "llmagent"
 version = "0.1.0"
-description = "Прототип ИИ-агента выпуска документации подземного водопровода (тестовое задание)"
+description = "Прототип ИИ-агента выпуска документации подземного водопровода"
 requires-python = ">=3.10"
 dependencies = [
     "openai",
     "pydantic>=2",
     "python-dotenv",
+    "reportlab",
+    "svglib",
+    "pypdf",
 ]
 
 [project.optional-dependencies]

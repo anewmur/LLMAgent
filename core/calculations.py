@@ -90,6 +90,7 @@ def calculate_material_quantities(input_file=INPUT_PATH):
             "sdr": project.pipe.sdr,
             "outer_diameter_mm": project.pipe.outer_diameter_mm,
             "wall_mm": project.pipe.wall_mm,
+            "standard": project.pipe.standard,
             "quantity_m": geometry["length_m"],
         },
         "bends": [

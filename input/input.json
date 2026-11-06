@@ -9,7 +9,8 @@
     "material": "ПЭ 100",
     "sdr": 17,
     "outer_diameter_mm": 110,
-    "wall_mm": 6.6
+    "wall_mm": 6.6,
+    "standard": null
   },
   "points": [
     {

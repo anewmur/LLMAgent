@@ -106,12 +106,11 @@ def test_terminal_accepts_multiple_questions(monkeypatch):
     assert histories[1][-1]["content"] == "Ответ"
 
 
-def test_tools_read_updated_input_between_calls(monkeypatch, tmp_path):
-    from core.calculations import INPUT_PATH
+def test_tools_read_updated_input_between_calls(monkeypatch, tmp_path, route_data):
     from core import calculations
 
     path = tmp_path / "route.json"
-    path.write_bytes(INPUT_PATH.read_bytes())
+    path.write_text(json.dumps(route_data, ensure_ascii=False), encoding="utf-8")
     load_project = calculations.load_project
     monkeypatch.setattr(calculations, "load_project", lambda input_file: load_project(path))
     call_number = 0
