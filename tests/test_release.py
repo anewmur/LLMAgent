@@ -16,6 +16,10 @@ NS = {"s": "http://www.w3.org/2000/svg"}
 def test_release_uses_project_and_detects_tampering(route_data, tmp_path):
     folder = tmp_path / "output"
     for x, diameter, length in [(280, 110, "360,00"), (300, 160, "380,00")]:
+        for stale in ["old.svg", "changes.md", "pdf/NV.pdf", "old/nested/preview.png"]:
+            path = folder / stale
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"old release")
         route_data["points"][-1]["x"] = x
         route_data["pipe"]["outer_diameter_mm"] = diameter
         route_data["object"].update(project_code="OTHER-07", name="Другой объект $100 & участок")
@@ -24,8 +28,9 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path):
         assert result["status"] == "ok", result
         assert all(c["passed"] for c in result["checks"])
         expected = {"general.svg", "plan.svg", "profile.svg", "specification.svg", "specification.csv", "check_report.md"}
-        expected.update("pdf/" + name + ".pdf" for name in ["general", "plan", "profile", "specification", "NV", "package"])
+        expected.update("pdf/" + name + ".pdf" for name in ["general", "plan", "profile", "specification", "package"])
         assert {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()} == expected
+        assert {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_dir()} == {"pdf"}
         report = (folder / "check_report.md").read_text(encoding="utf-8")
         assert "## Допущения" in report and "## Ограничения" in report
         assert "Отводы включены в спецификацию вопреки ГОСТ 21.704 п. 7.4" in report

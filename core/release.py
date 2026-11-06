@@ -68,8 +68,6 @@ class PackageRelease:
         stems = ["specification" if doc["id"] == "spec" else doc["id"] for doc in self.documents.items]
         for stem in stems:
             svg_to_pdf(folder / f"{stem}.svg", folder / "pdf" / f"{stem}.pdf")
-        main = [doc["id"] for doc in self.documents.items if doc["suffix"] == "-НВ"]
-        self.merge_pdf(folder, "NV.pdf", main)
         self.merge_pdf(folder, "package.pdf", stems)
 
     def write_changes(self, folder):
@@ -87,13 +85,19 @@ class PackageRelease:
 
     def publish(self, folder):
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        for target in sorted(self.output_dir.rglob("*"), reverse=True):
+            source = folder / target.relative_to(self.output_dir)
+            if target.is_symlink():
+                target.unlink()
+            elif target.is_file() and not source.is_file():
+                target.unlink()
+            elif target.is_dir() and not any(target.iterdir()):
+                target.rmdir()
         for source in folder.rglob('*'):
             if source.is_file():
                 target = self.output_dir / source.relative_to(folder)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, target)
-        if not self.changes:
-            (self.output_dir / "changes.md").unlink(missing_ok=True)
 
     def create(self):
         try:

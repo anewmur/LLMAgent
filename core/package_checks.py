@@ -265,12 +265,10 @@ class PackageChecks:
     def check_pdf(self):
         for doc in self.documents.items:
             self.check_pdf_page(doc)
-        main_count = sum(doc["suffix"] == "-НВ" for doc in self.documents.items)
-        for name, count in [("NV.pdf", main_count), ("package.pdf", len(self.documents.items))]:
-            if len(PdfReader(self.folder / "pdf" / name).pages) != count:
-                self.add("merged_pdf", False, "Неверное число страниц: " + name)
-                return
-        self.add("merged_pdf", True, "Количество страниц объединённых PDF совпадает с составом выпуска.")
+        if len(PdfReader(self.folder / "pdf" / "package.pdf").pages) != len(self.documents.items):
+            self.add("merged_pdf", False, "Неверное число страниц: package.pdf")
+            return
+        self.add("merged_pdf", True, "Количество страниц package.pdf совпадает с составом выпуска.")
 
     def run(self):
         for check in [self.check_sheets, self.check_plan_geometry, self.check_plan_labels,
