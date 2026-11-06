@@ -6,7 +6,7 @@ from core.sheet import create_sheet
 def test_a3_sheet_template():
     title = "План трассы & профиль"
     designation = "OTHER-02-НВ"
-    object_name = "Другой объект & участок"
+    object_name = "Другой объект $100 ${title} & участок"
     svg = create_sheet(designation, object_name, title, 2, 4)
     root = ET.fromstring(svg)
     ns = {"svg": "http://www.w3.org/2000/svg"}

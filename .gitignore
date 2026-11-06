@@ -28,3 +28,7 @@ desktop.ini
 # Local secrets and pytest temp
 api_keys.env
 .pytest_tmp/
+
+# Generated documents and temporary files
+/tmp/
+/output/

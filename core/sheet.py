@@ -10,13 +10,22 @@ from reportlab.pdfbase.ttfonts import TTFont
 from svglib.svglib import svg2rlg
 
 
-TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "sheet_a3.svg"
+TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "sheet.svg"
+PAPER_SIZES = {"A3": (420, 297), "A2": (594, 420)}
 
 
 class Sheet:
-    """Лист A3 с основной надписью по постоянному SVG-макету."""
+    """Лист A3 или A2 с основной надписью по постоянному SVG-макету.
 
-    def __init__(self, designation, object_name, title, number, total):
+    Эталон сетки формы 3 (185×55 мм): dell4valt/gost_template,
+    «SVG/Форма 3/Форма 3 [A3-альбомный].svg»:
+    https://raw.githubusercontent.com/dell4valt/gost_template/master/SVG/%D0%A4%D0%BE%D1%80%D0%BC%D0%B0%203/%D0%A4%D0%BE%D1%80%D0%BC%D0%B0%203%20%5BA3-%D0%B0%D0%BB%D1%8C%D0%B1%D0%BE%D0%BC%D0%BD%D1%8B%D0%B9%5D.svg
+    """
+
+    def __init__(self, designation, object_name, title, number, total, paper="A3"):
+        if paper not in PAPER_SIZES:
+            raise ValueError("Поддерживаются форматы A3 и A2.")
+        self.width, self.height = PAPER_SIZES[paper]
         self.designation = designation
         self.object_name = object_name
         self.title = title
@@ -33,6 +42,10 @@ class Sheet:
     def render(self):
         template = Template(TEMPLATE_PATH.read_text(encoding="utf-8"))
         return template.substitute(
+            width=self.width, height=self.height,
+            frame_width=self.width - 25, frame_height=self.height - 10,
+            stamp_x=self.width - 190, stamp_y=self.height - 60,
+            center_x=(self.width + 15) / 2,
             designation=escape(str(self.designation)),
             object_name=escape(str(self.object_name)),
             title=self.title_svg(),

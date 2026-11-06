@@ -2,15 +2,17 @@ import csv
 import json
 from xml.etree import ElementTree as ET
 
+import core.sheet as sheet_module
+import core.specification as specification_module
 from core.calculations import calculate_route_length
-from core.specification import HEADERS, create_specification
+from core.specification import HEADERS, Specification, create_specification
 
 
 def test_csv_and_svg_match_calculated_quantities(route_data, tmp_path):
     # \u0418\u0441\u0445\u043e\u0434\u043d\u044b\u0439 \u043f\u0440\u0438\u043c\u0435\u0440 \u0438 \u0434\u0440\u0443\u0433\u043e\u0439 \u0448\u0438\u0444\u0440, \u043e\u0431\u044a\u0435\u043a\u0442, \u0434\u0438\u0430\u043c\u0435\u0442\u0440 \u0438 \u0434\u043b\u0438\u043d\u0430 \u2014 \u0431\u0435\u0437 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f \u043a\u043e\u0434\u0430.
     for code, name, p5_x, diameter, expected_length, standard in [
         ("AI-TEST-01", "\u0423\u0447\u0435\u0431\u043d\u044b\u0439 \u0443\u0447\u0430\u0441\u0442\u043e\u043a \u0432\u043e\u0434\u043e\u043f\u0440\u043e\u0432\u043e\u0434\u0430", 280, 110, 360, None),
-        ("OTHER-02", "\u0414\u0440\u0443\u0433\u043e\u0439 \u043e\u0431\u044a\u0435\u043a\u0442 & \u0443\u0447\u0430\u0441\u0442\u043e\u043a", 300, 160, 380,
+        ("OTHER-02", "Другой объект $100 ${table_body} & участок", 300, 160, 380,
          "\u0422\u0423 TEST-160. \u0422\u0440\u0443\u0431\u044b \u043d\u0430\u043f\u043e\u0440\u043d\u044b\u0435 \u043f\u043e\u043b\u0438\u044d\u0442\u0438\u043b\u0435\u043d\u043e\u0432\u044b\u0435. \u0422\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0443\u0441\u043b\u043e\u0432\u0438\u044f"),
     ]:
         data = json.loads(json.dumps(route_data))
@@ -83,3 +85,28 @@ def test_conflicting_materials_prevent_specification_export(route_data, tmp_path
     assert result["status"] == "error"
     assert any(p["where"] == "pipe" for p in result["problems"])
     assert not output.exists()
+
+
+def test_specification_uses_shared_sheet_and_column_widths(input_file, tmp_path, monkeypatch):
+    template = sheet_module.TEMPLATE_PATH.read_text(encoding="utf-8")
+    template = template.replace('id="title-block"', 'id="title-block" data-shared="yes"')
+    shared_path = tmp_path / "sheet.svg"
+    shared_path.write_text(template, encoding="utf-8")
+    monkeypatch.setattr(sheet_module, "TEMPLATE_PATH", shared_path)
+    monkeypatch.setattr(specification_module, "WIDTHS", [25, 125, 60, 35, 45, 20, 20, 25, 40])
+    title = "Ведомость $100"
+    result = Specification(input_file, title=title, number=2, total=7).create(tmp_path / "output")
+
+    assert result["status"] == "ok"
+    root = ET.parse(result["files"]["svg"]).getroot()
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    assert root.find("s:g/s:rect[@id='title-block']", ns).get("data-shared") == "yes"
+    assert root.find(".//s:text[@x='157.5'][@y='36.5']", ns).text == "2"
+    assert root.find(".//s:text[@x='175'][@y='36.5']", ns).text == "7"
+    assert title in ["".join(e.itertext()) for e in root.findall(".//s:text", ns)]
+    table = root.find("s:g[@id='specification-table']", ns)
+    assert table.find("s:rect", ns).get("width") == "395"
+    assert table.find("s:path[@d='M 45,30 V 222']", ns) is not None
+    assert table.find("s:text[@x='32.5']", ns).text == "Поз."
+    first_row = table.find("s:g[@id='spec-row-1']", ns)
+    assert first_row.find("s:text[@x='32.5']", ns).text == "1"

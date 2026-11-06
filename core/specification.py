@@ -6,6 +6,7 @@ from xml.sax.saxutils import escape
 
 from core.calculations import INPUT_PATH, calculate_material_quantities, load_project
 from core.formatting import format_number
+from core.sheet import Sheet
 
 
 # REQ-048, REQ-052: форма 1 ГОСТ 21.110-2013, ширины граф в миллиметрах.
@@ -23,8 +24,12 @@ TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "specific
 class Specification:
     """Подготовка и сохранение спецификации по постоянному SVG-макету."""
 
-    def __init__(self, input_file=INPUT_PATH):
+    def __init__(self, input_file=INPUT_PATH,
+                 title="Спецификация оборудования, изделий и материалов", number="", total=1):
         self.input_file = Path(input_file)
+        self.title = title
+        self.number = number
+        self.total = total
         self.project = None
         self.quantities = None
         self.rows = []
@@ -108,7 +113,8 @@ class Specification:
 
     def table_body_svg(self, heights):
         y = 62
-        elements = [f'<path d="M 20,{y} H 415" stroke="black" stroke-width="0.3"/>']
+        right = 20 + sum(WIDTHS)
+        elements = [f'<path d="M 20,{y} H {right:g}" stroke="black" stroke-width="0.3"/>']
         for i, (row, height) in enumerate(zip(self.rows, heights)):
             elements.append(f'<g id="spec-row-{i + 1}">')
             x = 20
@@ -117,20 +123,36 @@ class Specification:
                 x += width
             elements.append('</g>')
             y += height
-            elements.append(f'<path d="M 20,{y} H 415" stroke="black" stroke-width="0.3"/>')
+            elements.append(f'<path d="M 20,{y} H {right:g}" stroke="black" stroke-width="0.3"/>')
         while y + 16 <= 222:
             y += 8
-            elements.append(f'<path d="M 20,{y} H 415" stroke="black" stroke-width="0.3"/>')
+            elements.append(f'<path d="M 20,{y} H {right:g}" stroke="black" stroke-width="0.3"/>')
+        return "\n".join(elements)
+
+    def table_header_svg(self):
+        """Сетка, заголовки и текст строк используют одни ширины граф."""
+        x = 20
+        elements = []
+        for header, width in zip(HEADERS, WIDTHS):
+            if x > 20:
+                elements.append(f'<path d="M {x:g},30 V 222" stroke="black" stroke-width="0.3"/>')
+            elements.append(self.cell_text(header, x, 30, width, 32, centered=True))
+            x += width
         return "\n".join(elements)
 
     def render_svg(self):
         heights = self.calculate_row_heights()
         template = Template(TEMPLATE_PATH.read_text(encoding="utf-8"))
-        return template.substitute(
-            designation=escape(self.project.object.project_code + "-НВ.СО"),
-            object_name=escape(str(self.project.object.name)),
+        table = template.substitute(
+            table_width=f"{sum(WIDTHS):g}",
+            table_header=self.table_header_svg(),
             table_body=self.table_body_svg(heights),
         )
+        sheet = Sheet(
+            self.project.object.project_code + "-НВ.СО", self.project.object.name,
+            self.title, self.number, self.total,
+        ).render()
+        return sheet.replace("</svg>", table + "\n</svg>")
 
     def save_files(self, output_dir, svg):
         output_dir = Path(output_dir)
