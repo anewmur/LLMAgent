@@ -3,6 +3,8 @@ import json
 
 import pytest
 
+from main import load_config
+
 
 REFERENCE_ROUTE = {'object': {'name': 'Учебный участок водопровода',
             'project_code': 'AI-TEST-01',
@@ -23,12 +25,24 @@ REFERENCE_ROUTE = {'object': {'name': 'Учебный участок водоп�
 
 
 @pytest.fixture
+def config():
+    return load_config()
+
+
+@pytest.fixture
 def route_data():
     return copy.deepcopy(REFERENCE_ROUTE)
 
 
 @pytest.fixture
-def input_file(tmp_path, route_data):
-    path = tmp_path / "input.json"
-    path.write_text(json.dumps(route_data, ensure_ascii=False), encoding="utf-8")
-    return path
+def write_route(tmp_path):
+    def write(data, filename="input.json"):
+        path = tmp_path / filename
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return path
+    return write
+
+
+@pytest.fixture
+def input_file(write_route, route_data):
+    return write_route(route_data)

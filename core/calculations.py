@@ -6,30 +6,25 @@ from core.models import Point, Project
 from core.validate import validate_input
 
 
-INPUT_PATH = Path(__file__).resolve().parent.parent/ "input" / "input.json"
-
 def calculate_route_geometry(points: list[Point]):
     sections = []
     total = 0.0
 
-    for i in range(len(points) - 1):
-        a = points[i]
-        b = points[i + 1]
-
-        dx = b.x - a.x
-        dy = b.y - a.y
-        length = (dx ** 2 + dy ** 2) ** 0.5
+    for start, end in zip(points, points[1:]):
+        delta_x = end.x - start.x
+        delta_y = end.y - start.y
+        length = (delta_x ** 2 + delta_y ** 2) ** 0.5
 
         start_station = total
         total += length
 
         sections.append({
-            "start_id": a.id,
-            "end_id": b.id,
+            "start_id": start.id,
+            "end_id": end.id,
             "length_m": length,
             "start_station_m": start_station,
             "cumsum_dist_m": total,
-            "slope_per_mille": calculate_slope(a, b, length),
+            "slope_per_mille": calculate_slope(start, end, length),
         })
 
     return {
@@ -38,57 +33,30 @@ def calculate_route_geometry(points: list[Point]):
     }
 
 
-def load_project(input_file=INPUT_PATH):
-    """Проверить проект в памяти или прочитать начальный JSON."""
-    if isinstance(input_file, Project):
-        return validate_input(input_file.model_dump())
+def load_project(input_file):
+    """Читает начальный JSON и возвращает проект с результатами проверки."""
     data = json.loads(Path(input_file).read_text(encoding="utf-8"))
     return validate_input(data)
 
 
-def calculate_route_length(input_file=INPUT_PATH):
-    project, problems = load_project(input_file)
+def calculate_route_length(project: Project):
+    """Возвращает длину и участки готового проверенного проекта."""
+    return calculate_route_geometry(project.points)
 
-    if project is None:
-        return {"status": "error", "problems": problems}
-
-    if any(problem["blocks_length"] for problem in problems):
-        return {"status": "error", "problems": problems}
-
-    geometry = calculate_route_geometry(project.points)
-
+def calculate_pipe_levels(project: Project):
+    """Возвращает отметки и глубины готового проверенного проекта."""
     return {
-        "status": "ok",
-        "length_m": geometry["length_m"],
-        "sections": geometry["sections"],
-        "problems": problems,
-    }
-
-def calculate_pipe_levels(input_file=INPUT_PATH):
-    project, problems = load_project(input_file)
-    if project is None:
-        return {"status": "error", "problems": problems}
-    return {
-        "status": "ok",
         "point_levels": calculate_point_levels(
             project.points, project.pipe.outer_diameter_mm
         ),
-        "problems": problems,
     }
 
 
-def calculate_material_quantities(input_file=INPUT_PATH):
-    project, problems = load_project(input_file)
-    if project is None or any(p["blocks_length"] for p in problems):
-        return {"status": "error", "problems": problems}
-    blocking = [p for p in problems if p["blocks_quantities"]]
-    if blocking:
-        return {"status": "error", "problems": blocking}
-
+def calculate_material_quantities(project: Project):
+    """Возвращает количества материалов готового проверенного проекта."""
     geometry = calculate_route_geometry(project.points)
     bend_counts = Counter(bend.angle_deg for bend in project.bends)
     return {
-        "status": "ok",
         "pipe": {
             "material": project.pipe.material,
             "sdr": project.pipe.sdr,
@@ -101,7 +69,6 @@ def calculate_material_quantities(input_file=INPUT_PATH):
             {"angle_deg": angle, "quantity_pcs": count}
             for angle, count in sorted(bend_counts.items())
         ],
-        "problems": problems,
     }
 
 

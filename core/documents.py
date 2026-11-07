@@ -1,5 +1,7 @@
 from collections import Counter
 
+from core import drawing_settings as settings
+from core.models import DocumentId
 from core.sheet import Sheet
 
 
@@ -11,6 +13,9 @@ class DocumentSet:
         counts = Counter(item["suffix"] for item in self.items)
         positions = Counter()
         for item in self.items:
+            item["id"] = DocumentId(item["id"])
+            item["title"] = item["title"].replace("{network_code}", settings.NETWORK_CODE)
+            item["short_title"] = item.get("short_title", item["title"])
             item["paper"] = Sheet.paper
             suffix = item["suffix"]
             positions[suffix] += 1

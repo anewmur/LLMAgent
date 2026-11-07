@@ -1,7 +1,7 @@
 <g xmlns="http://www.w3.org/2000/svg" id="specification-table"
-   font-family="Arial, sans-serif" font-size="3.5" fill="black">
+   font-family="${font_family}" font-size="${font_size}" fill="black">
   <!-- Форма 1: шапка 32 мм (y=30..62), строки от 8 мм, низ таблицы y=222. -->
-  <rect x="20" y="30" width="${table_width}" height="192"
+  <rect x="${table_left}" y="${table_top}" width="${table_width}" height="${table_height}"
         fill="none" stroke="black" stroke-width="0.7"/>
 ${table_header}
 ${table_body}

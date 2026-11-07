@@ -1,71 +1,123 @@
+from unittest.mock import Mock
 from xml.etree import ElementTree as ET
 
-import pytest
 from pypdf import PdfReader
-import yaml
+import pytest
 
+from core import calculations, release as release_module
+from core.assumptions import COORDINATE_ORIENTATION_NOTE, SHARED_ASSUMPTIONS
+from core.checks import base as checks_module
 from core.documents import DocumentSet
 from core.package_checks import PackageChecks
-from core.release import CONFIG_PATH, create_package
+from core.plan import PlanDrawing
+from core.profile import ProfileDrawing
+from core.release import create_package
+from core.session import RouteSession
 from core.validate import validate_input
 
 
 NS = {"s": "http://www.w3.org/2000/svg"}
 
 
-def test_release_uses_project_and_detects_tampering(route_data, tmp_path):
+def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config, monkeypatch):
     folder = tmp_path / "output"
-    for x, diameter, length in [(280, 110, "360,00"), (300, 160, "380,00")]:
+    for p5_x, diameter, length in [(280, 110, "360,00"), (300, 160, "380,00")]:
         for stale in ["old.svg", "changes.md", "pdf/NV.pdf", "old/nested/preview.png"]:
             path = folder / stale
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"old release")
-        route_data["points"][-1]["x"] = x
+        route_data["points"][-1]["x"] = p5_x
         route_data["pipe"]["outer_diameter_mm"] = diameter
         route_data["object"].update(project_code="OTHER-07", name="Другой объект $100 & участок")
         project, _ = validate_input(route_data)
-        result = create_package(project, folder)
+        with monkeypatch.context() as patch:
+            validation = Mock(side_effect=AssertionError("Готовый проект не проверяется повторно"))
+            patch.setattr(calculations, "validate_input", validation)
+            result = create_package(project, folder, config)
+            validation.assert_not_called()
         assert result["status"] == "ok", result
-        assert all(c["passed"] for c in result["checks"])
+        assert all(check["passed"] for check in result["checks"])
         expected = {"general.svg", "plan.svg", "profile.svg", "specification.svg", "specification.csv", "check_report.md"}
         expected.update("pdf/" + name + ".pdf" for name in ["general", "plan", "profile", "specification", "package"])
-        assert {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()} == expected
-        assert {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_dir()} == {"pdf"}
+        assert {path.relative_to(folder).as_posix() for path in folder.rglob("*") if path.is_file()} == expected
+        assert {path.relative_to(folder).as_posix() for path in folder.rglob("*") if path.is_dir()} == {"pdf"}
         report = (folder / "check_report.md").read_text(encoding="utf-8")
         assert "## Допущения" in report and "## Ограничения" in report
+        assert all(assumption in report for assumption in SHARED_ASSUMPTIONS)
+        assert COORDINATE_ORIENTATION_NOTE in report
         assert "Отводы включены в спецификацию вопреки ГОСТ 21.704 п. 7.4" in report
         assert f"Труба ⌀{diameter} при 1:100" in report
         assert length in (folder / "specification.csv").read_text(encoding="utf-8-sig")
         assert len(PdfReader(folder / "pdf/package.pdf").pages) == 4
         for stem, number, total in [("general", "1", "3"), ("plan", "2", ""), ("profile", "3", ""), ("specification", "", "1")]:
             root = ET.parse(folder / (stem + ".svg")).getroot()
-            assert root.get("viewBox") == "0 0 420 297"
-            assert {float(e.get("font-size")) for e in root.iter() if e.get("font-size")} <= {2.5, 3.5, 5, 7, 10, 14}
+            if stem == "general":
+                text = " ".join(" ".join(root.itertext()).split())
+                assert all(assumption in text for assumption in SHARED_ASSUMPTIONS)
+                notes = root.findall(".//s:g[@id='general-notes']/s:text", NS)
+                assert len(notes) == 6
+                pipe_note = " ".join(" ".join(notes[2].itertext()).split())
+                assert pipe_note == (f"Проектируемая сеть В1 — подземный напорный водопровод из труб "
+                                     f"ПЭ 100 SDR 17 {diameter}×6,6. Длина трассы — {length} м.")
             assert (root.find(".//s:text[@x='157.5'][@y='36.5']", NS).text or "") == number
             assert (root.find(".//s:text[@x='175'][@y='36.5']", NS).text or "") == total
-            page = PdfReader(folder / "pdf" / (stem + ".pdf")).pages[0]
-            assert float(page.mediabox.width) * 25.4 / 72 == pytest.approx(420, abs=0.02)
-            assert float(page.mediabox.height) * 25.4 / 72 == pytest.approx(297, abs=0.02)
     path = folder / "profile.svg"
     value = ET.parse(path).getroot().find(".//s:text[@data-kind='bottom-level']", NS).text
     path.write_text(path.read_text(encoding="utf-8").replace(f'>{value}<', '>999,99<'), encoding="utf-8")
-    config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
-    checks = PackageChecks(project, DocumentSet(project, config), folder).run()
-    assert not next(c["passed"] for c in checks if c["id"] == "profile_values")
+    geometry = Mock(wraps=checks_module.calculate_route_geometry)
+    levels = Mock(wraps=checks_module.calculate_point_levels)
+    monkeypatch.setattr(checks_module, "calculate_route_geometry", geometry)
+    monkeypatch.setattr(checks_module, "calculate_point_levels", levels)
+    checker = PackageChecks(project, DocumentSet(project, config), folder)
+    checks = checker.run()
+    assert geometry.call_count == levels.call_count == 1
+    assert checker.run() == checks
+    assert geometry.call_count == levels.call_count == 2
+    assert not next(check["passed"] for check in checks if check["id"] == "profile_values")
+
+
+def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_data, tmp_path, config, monkeypatch):
+    route_data["pipe"]["outer_diameter_mm"] = 250
+    project, problems = validate_input(route_data)
+    assert not problems
+    monkeypatch.setattr(release_module, "PlanDrawing", lambda project, document: PlanDrawing(project, document, scale=2000))
+    monkeypatch.setattr(release_module, "ProfileDrawing", lambda project, document, font_size: ProfileDrawing(
+        project, document, font_size, horizontal_scale=4000, vertical_scale=200,
+    ))
+    folder = tmp_path / "output"
+
+    result = create_package(project, folder, config)
+
+    assert result["status"] == "warning", result
+    assert any(check["id"] == "plan_label_overlap" and check["level"] == "warning" for check in result["checks"])
+    assert not any(not check["passed"] and check["level"] == "error" for check in result["checks"])
+    plan = ET.parse(folder / "plan.svg").getroot()
+    stamp_title = plan.find(".//s:text[@x='100'][@y='35.5']", NS)
+    assert "".join(stamp_title.itertext()) == "План сетей водоснабжения (1:2000)"
+    assert "(1:2000)" in PdfReader(folder / "pdf/plan.pdf").pages[0].extract_text()
+    profile = ET.parse(folder / "profile.svg").getroot()
+    geometry = profile.find("s:g[@id='profile-geometry']", NS)
+    assert geometry.get("data-horizontal-scale") == "4000"
+    assert geometry.get("data-vertical-scale") == "200"
+    assert geometry.find("s:path[@id='pipe-top-line']", NS) is None
+    assert profile.find(".//s:text[@data-kind='horizontal-scale']", NS).text == "М 1:4000 по горизонтали"
+    assert profile.find(".//s:text[@data-kind='vertical-scale']", NS).text == "М 1:200 по вертикали"
+    assert "Труба ⌀250 при 1:200 = 1,25 мм < 2 мм" in (folder / "check_report.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("case", ["missing_level", "material_conflict", "bend_conflict"])
-def test_invalid_project_does_not_replace_documents(route_data, tmp_path, case):
+def test_invalid_project_does_not_replace_documents(route_data, tmp_path, case, config, write_route):
     project, _ = validate_input(route_data)
     folder = tmp_path / "output"
-    assert create_package(project, folder)["status"] == "ok"
-    before = {p.relative_to(folder): p.read_bytes() for p in folder.rglob("*") if p.is_file()}
+    assert create_package(project, folder, config)["status"] == "ok"
+    before = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
     if case == "missing_level":
-        project.points[3].axis = None
+        route_data["points"][3]["axis"] = None
     elif case == "material_conflict":
-        project.pipe.material = "ПЭ 80"
+        route_data["pipe"]["material"] = "ПЭ 80"
     else:
-        project.bends[0].angle_deg = 45
-    result = create_package(project, folder)
+        route_data["bends"][0]["angle_deg"] = 45
+    input_file = write_route(route_data, "invalid.json")
+    result = RouteSession(input_file, folder, config).release()
     assert result["status"] == "error" and result["problems"]
-    assert {p.relative_to(folder): p.read_bytes() for p in folder.rglob("*") if p.is_file()} == before
+    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before

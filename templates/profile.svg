@@ -1,8 +1,8 @@
 <g xmlns="http://www.w3.org/2000/svg" id="profile-geometry"
-   data-datum-m="${datum}" data-horizontal-scale="2000" data-vertical-scale="100"
-   data-font-size="${font_size}" fill="none" stroke="black">
+   data-datum-m="${datum}" data-horizontal-scale="${horizontal_scale}" data-vertical-scale="${vertical_scale}"
+   data-font-size="${font_size}" font-family="${font_family}" fill="none" stroke="black">
   <path id="ground-line" d="${ground}" stroke-width="0.45"/>
-  <path id="pipe-bottom-line" d="${bottom}" stroke-width="1.0"/>
+  <path id="pipe-bottom-line" d="${bottom}" stroke-width="${pipe_line_width}"/>
   ${top}
 </g>
 ${reference}

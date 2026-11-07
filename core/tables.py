@@ -1,47 +1,67 @@
-from pathlib import Path
-from string import Template
 from textwrap import wrap
 from xml.sax.saxutils import escape
 
+from core import drawing_settings as settings
+from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from core.paths import TEMPLATES_DIR
+from core.templates import render_template
 
-TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "register_table.svg"
+
+TEMPLATE_PATH = TEMPLATES_DIR / "register_table.svg"
+
+
+def wrap_text(text, width, font_size, break_long_words=True):
+    """Возвращает строки текста, приближённо помещающиеся в ширину в мм листа."""
+    characters = max(settings.TEXT_MIN_WRAP_CHARACTERS,
+                     int(width / (font_size * settings.TEXT_CHARACTER_WIDTH_FACTOR)))
+    lines = []
+    for paragraph in str(text).splitlines():
+        lines.extend(wrap(paragraph, characters, break_long_words=break_long_words) or [""])
+    return lines or [""]
 
 
 class TextBlock:
     """Текст с переносами в заданной ширине, размеры в миллиметрах."""
 
-    def __init__(self, text, x, y, width, font_size=3.5, break_long_words=True):
-        self.lines = wrap(str(text), max(4, int(width / (font_size * 0.55))),
-                          break_long_words=break_long_words) or [""]
-        self.x, self.y, self.font_size = x, y, font_size
+    def __init__(self, text, left, top, width, font_size=DEFAULT_FONT_SIZE_MM, break_long_words=True):
+        """Сохраняет положение блока и переносит текст на строки."""
+        self.lines = wrap_text(text, width, font_size, break_long_words)
+        self.left, self.top, self.font_size = left, top, font_size
 
     def render(self, underline=False):
-        spans = [f'<tspan x="{self.x}" y="{self.y + i * 4.5}">{escape(line)}</tspan>'
-                 for i, line in enumerate(self.lines)]
+        """Возвращает SVG строк блока с необязательным подчёркиванием."""
+        spans = [f'<tspan x="{self.left}" y="{self.top + index * settings.TEXT_LINE_STEP_MM}">{escape(line)}</tspan>'
+                 for index, line in enumerate(self.lines)]
         svg = f'<text font-size="{self.font_size}">' + "".join(spans) + '</text>'
         if underline:
-            for i, line in enumerate(self.lines):
-                svg += (f'<path d="M {self.x},{self.y + i * 4.5 + 1} h {len(line) * self.font_size * 0.5}" '
-                        'stroke="black" stroke-width="0.15"/>')
+            for index, line in enumerate(self.lines):
+                baseline = self.top + index * settings.TEXT_LINE_STEP_MM + 1
+                svg += (f'<path d="M {self.left},{baseline} h {len(line) * self.font_size * 0.5}" '
+                        f'stroke="black" stroke-width="{settings.TEXT_UNDERLINE_WIDTH_MM}"/>')
         return svg
 
 
-class TableCell(TextBlock):
+class TableCell:
     """Тот же перенос текста, с размещением внутри ячейки таблицы."""
 
-    def __init__(self, value, x, y, width, height, centered):
-        super().__init__(value, x, y, width - 4, 3.5, break_long_words=not centered)
+    def __init__(self, value, left, top, width, height, centered):
+        """Переносит текст и сохраняет размеры и выравнивание ячейки."""
+        self.lines = wrap_text(value, width - settings.TABLE_CELL_HORIZONTAL_PADDING_MM,
+                               DEFAULT_FONT_SIZE_MM, break_long_words=not centered)
+        self.left, self.top = left, top
         self.width, self.height, self.centered = width, height, centered
 
     def render(self):
-        x = self.x + self.width / 2 if self.centered else self.x + 2
+        """Возвращает SVG строк, расположенных по центру высоты ячейки."""
+        text_x = self.left + (self.width / 2 if self.centered else settings.TABLE_CELL_HORIZONTAL_PADDING_MM / 2)
         anchor = "middle" if self.centered else "start"
         elements = []
-        for i, line in enumerate(self.lines):
+        for index, line in enumerate(self.lines):
             if not line:
                 continue
-            y = self.y + self.height / 2 + 1.2 + (i - (len(self.lines) - 1) / 2) * 4
-            elements.append(f'<text x="{x:g}" y="{y:g}" text-anchor="{anchor}">{escape(line)}</text>')
+            text_y = (self.top + self.height / 2 + settings.TABLE_CELL_BASELINE_OFFSET_MM
+                      + (index - (len(self.lines) - 1) / 2) * settings.TABLE_CELL_LINE_STEP_MM)
+            elements.append(f'<text x="{text_x:g}" y="{text_y:g}" text-anchor="{anchor}">{escape(line)}</text>')
         return "\n".join(elements)
 
 
@@ -49,38 +69,48 @@ class RegisterTable:
     """Ведомость: фиксированные графы, строки растут при переносах."""
 
     def __init__(self, headings, widths, rows):
+        """Сохраняет заголовки, ширины граф и строки ведомости."""
         self.headings, self.widths, self.rows = headings, widths, rows
 
-    def draw_row(self, values, y, height):
-        x = 0
+    def draw_row(self, values, row_top, height):
+        """Возвращает SVG текста строки ведомости."""
+        column_left = 0
         elements = []
         section = not values[0] and bool(values[1]) and not values[2]
         for column, (value, width) in enumerate(zip(values, self.widths)):
-            text = TextBlock(value, x + 2, y, width - 4, 3.5)
-            text.y = y + (height - (len(text.lines) - 1) * 4.5) / 2 + 1
+            padding = settings.TABLE_CELL_HORIZONTAL_PADDING_MM
+            text = TextBlock(value, column_left + padding / 2, row_top, width - padding, DEFAULT_FONT_SIZE_MM)
+            text.top = row_top + (height - (len(text.lines) - 1) * settings.TEXT_LINE_STEP_MM) / 2 + 1
             elements.append(text.render(underline=section and column == 1))
-            x += width
+            column_left += width
         return "\n".join(elements)
 
     def row_height(self, row):
-        counts = [len(TextBlock(value, 0, 0, width - 4, 3.5).lines)
+        """Возвращает высоту строки ведомости с учётом переноса текста."""
+        counts = [len(wrap_text(value, width - settings.TABLE_CELL_HORIZONTAL_PADDING_MM, DEFAULT_FONT_SIZE_MM))
                   for value, width in zip(row, self.widths)]
-        return max(8, max(counts) * 4.5 + 3)
+        return max(settings.REGISTER_MIN_ROW_HEIGHT_MM,
+                   max(counts) * settings.TEXT_LINE_STEP_MM + settings.REGISTER_ROW_PADDING_MM)
 
     def render(self):
+        """Возвращает SVG ведомости с рамкой, сеткой и строками."""
         width = sum(self.widths)
-        y = 15
+        row_top = 15
         elements = [self.draw_row(self.headings, 0, 15)]
         borders = [f'M 0,15 H {width}']
         for row in self.rows:
             height = self.row_height(row)
-            elements.append(self.draw_row(row, y, height))
-            y += height
-            borders.append(f'M 0,{y} H {width}')
-        x = 0
+            elements.append(self.draw_row(row, row_top, height))
+            row_top += height
+            borders.append(f'M 0,{row_top} H {width}')
+        column_left = 0
         for cell_width in self.widths[:-1]:
-            x += cell_width
-            borders.append(f'M {x},0 V {y}')
-        return Template(TEMPLATE_PATH.read_text(encoding="utf-8")).safe_substitute(
-            width=width, height=y, grid=" ".join(borders), contents="\n".join(elements),
-        )
+            column_left += cell_width
+            borders.append(f'M {column_left},0 V {row_top}')
+        return render_template(TEMPLATE_PATH, {
+            "font_family": settings.FONT_FAMILY,
+            "width": width,
+            "height": row_top,
+            "grid": " ".join(borders),
+            "contents": "\n".join(elements),
+        })

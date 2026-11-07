@@ -1,105 +1,164 @@
+from dataclasses import asdict
 from pathlib import Path
 
-from core.calculations import (INPUT_PATH, calculate_material_quantities, calculate_pipe_levels,
-                               calculate_route_geometry, calculate_route_length, load_project)
+from core.calculations import (
+    calculate_material_quantities,
+    calculate_pipe_levels,
+    calculate_route_geometry,
+    calculate_route_length,
+    load_project,
+)
+from core.documents import DocumentSet
+from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from core.models import Change, ChangeSet, DocumentId, Level, PipeField, PointField, Status, UNIT_M, UNIT_MM
 from core.profile_style import ProfileStyle
-from core.release import OUTPUT_DIR, create_package
+from core.release import create_package
 from core.validate import problem, validate_input
+
+
+VALUES_UNCHANGED = "Значения не изменились."
+POINT_NOT_FOUND = "Точка не найдена."
+FIELDS_REQUIRED = "Укажите изменяемые x, y или z."
+PIPE_FIELDS_REQUIRED = "Укажите изменяемые поля трубы: {fields}."
+PIPE_WHERE = "pipe"
+FONT_LIMIT = "Достигнута граница ряда размеров шрифта."
+LABEL_ROUTE_LENGTH = "Общая длина трассы"
+LABEL_PROFILE_FONT = "Базовый шрифт профиля"
+LABEL_OBJECT_PIPE_MATERIAL = "Материал трубы в описании объекта"
+TITLE_POINT_CHANGE = "Изменение точки {name}"
+TITLE_FONT_CHANGE = "Изменение шрифта профиля"
+TITLE_PIPE_CHANGE = "Изменение трубы"
+INPUT_INVALID = "Исходные данные не прошли проверку."
 
 
 class RouteSession:
     """Текущий проект и только успешно выпущенные изменения этой сессии."""
 
-    def __init__(self, input_file=INPUT_PATH, output_dir=OUTPUT_DIR):
+    def __init__(self, input_file, output_dir, config):
         self.project, self.problems = load_project(input_file)
         if self.project is None:
-            raise ValueError("; ".join(p["message"] for p in self.problems))
+            raise ValueError("; ".join(problem["message"] for problem in self.problems))
+        self.config = config
+        self.documents = DocumentSet(self.project, self.config)
         self.output_dir = Path(output_dir)
         self.changes, self.tool_log = [], []
-        self.font_size = 3.5
+        self.font_size = DEFAULT_FONT_SIZE_MM
 
+    # Обёртки подставляют текущий проект в расчётные инструменты LLM.
     def calculate_route_length(self):
-        return calculate_route_length(self.project)
+        if any(problem["blocks_length"] for problem in self.problems):
+            return {"status": Status.ERROR, "problems": self.problems}
+        return {"status": Status.OK, **calculate_route_length(self.project), "problems": self.problems}
 
     def calculate_pipe_levels(self):
-        return calculate_pipe_levels(self.project)
+        return {"status": Status.OK, **calculate_pipe_levels(self.project), "problems": self.problems}
 
     def calculate_material_quantities(self):
-        return calculate_material_quantities(self.project)
+        if any(problem["blocks_length"] for problem in self.problems):
+            return {"status": Status.ERROR, "problems": self.problems}
+        blocking = [problem for problem in self.problems if problem["blocks_quantities"]]
+        if blocking:
+            return {"status": Status.ERROR, "problems": blocking}
+        return {"status": Status.OK, **calculate_material_quantities(self.project), "problems": self.problems}
 
     def release(self):
-        return create_package(self.project, self.output_dir, self.changes, self.font_size)
+        if self.has_errors(self.project, self.problems):
+            return {"status": Status.ERROR, "message": INPUT_INVALID, "problems": self.problems}
+        return create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)
 
     @staticmethod
-    def add_value(values, name, before, after, unit="м"):
+    def has_errors(project, problems):
+        """Проверяет, отсутствует ли проект или есть ли ошибки проверки данных."""
+        return project is None or any(problem["level"] == Level.ERROR for problem in problems)
+
+    @staticmethod
+    def parse_fields(values, field_enum):
+        """Проверяет аргументы и возвращает поля модели либо None при неверных именах."""
+        fields = {field.argument: field for field in field_enum}
+        if not values or not set(values).issubset(fields):
+            return None
+        # У точки z соответствует axis; у трубы аргумент уже совпадает с полем модели.
+        return {fields[name].attribute: value for name, value in values.items()}
+
+    def publish_update(self, data, make_changes):
+        """Проверяет новые данные и выпускает комплект; при ошибке проект не меняется."""
+        project, problems = validate_input(data)
+        if self.has_errors(project, problems):
+            return {"status": Status.ERROR, "problems": problems}
+        return self.apply(project, make_changes(project), self.font_size)
+
+    def all_sheets(self):
+        """Возвращает названия всех листов из состава комплекта."""
+        return [doc["short_title"] for doc in self.documents.items]
+
+    @staticmethod
+    def add_value(values, name, before, after, unit=UNIT_M):
         if before != after:
-            values.append({"name": name, "before": before, "after": after, "unit": unit})
-
-    def point_values(self, before, after):
-        values = []
-        for field, label in [("x", "X"), ("y", "Y"), ("axis", "отметка оси трубы")]:
-            self.add_value(values, f"{before.id}, {label}", getattr(before, field), getattr(after, field))
-        return values
-
-    def section_values(self, before, after):
-        values = []
-        for old, new in zip(before["sections"], after["sections"]):
-            name = f'Участок {old["start_id"]}–{old["end_id"]}'
-            self.add_value(values, name + ", длина", old["length_m"], new["length_m"])
-            self.add_value(values, name + ", уклон", old["slope_per_mille"], new["slope_per_mille"], "‰")
-        return values
-
-    def point_change(self, project, name):
-        old = next(p for p in self.project.points if p.id == name)
-        new = next(p for p in project.points if p.id == name)
-        values = self.point_values(old, new)
-        before, after = calculate_route_geometry(self.project.points), calculate_route_geometry(project.points)
-        sections = self.section_values(before, after)
-        length_changed = before["length_m"] != after["length_m"]
-        sheets = ["Общие данные"] if length_changed else []
-        if old.x != new.x or old.y != new.y:
-            sheets.append("План")
-        if sections:
-            sheets.append("Профиль")
-        self.add_value(values, "Общая длина трассы", before["length_m"], after["length_m"])
-        self.add_value(values, "Количество трубы", before["length_m"], after["length_m"])
-        if length_changed:
-            sheets.append("Спецификация")
-        return {"title": f"Изменение точки {name}", "values": values + sections, "sheets": sheets}
+            values.append(Change(name, before, after, unit))
 
     def apply(self, project, change, font_size):
-        result = create_package(project, self.output_dir, self.changes + [change], font_size)
-        if result["status"] != "ok":
+        result = create_package(project, self.output_dir, self.config, self.changes + [change], font_size)
+        if result["status"] == Status.ERROR:
             return result
         self.project, self.font_size = project, font_size
-        self.problems = result["problems"]
+        self.problems = []
         self.changes.append(change)
-        return {"status": "ok", "changes": change, "pdf": result["pdf"]}
+        response = {"status": result["status"], "changes": asdict(change), "pdf": result["pdf"]}
+        if result["status"] == Status.WARNING:
+            response["warnings"] = [check["detail"] for check in result.get("checks", [])
+                                    if check.get("level") == Level.WARNING and not check["passed"]]
+        return response
 
     def update_point(self, name, **values):
-        """Непереданные поля прежние; явный None проверяется как удаление."""
-        fields = {"x": "x", "y": "y", "z": "axis"}
-        if not values or not set(values).issubset(fields):
-            return {"status": "error", "problems": [problem("error", name, "Укажите изменяемые x, y или z.")]}
-        data = self.project.model_dump()
-        point = next((p for p in data["points"] if p["id"] == name), None)
-        if point is None:
-            return {"status": "error", "problems": [problem("error", name, "Точка не найдена.")]}
-        for field, value in values.items():
-            point[fields[field]] = value
-        project, problems = validate_input(data)
-        if project is None or any(p["level"] == "error" for p in problems):
-            return {"status": "error", "problems": problems}
-        change = self.point_change(project, name)
-        if not change["values"]:
-            return {"status": "ok", "message": "Значения точки не изменились."}
-        return self.apply(project, change, self.font_size)
+        """Готовит правку точки и передаёт её в общую транзакцию выпуска."""
+        updates = self.parse_fields(values, PointField)
+        if updates is None:
+            return {"status": Status.ERROR, "problems": [problem(Level.ERROR, name, FIELDS_REQUIRED)]}
+        point = next((point for point in self.project.points if point.id == name), None)
+        if point is not None and all(getattr(point, field) == value for field, value in updates.items()):
+            return {"status": Status.OK, "message": VALUES_UNCHANGED}
+        data = self.project.with_point(name, **updates)
+        if data is None:
+            return {"status": Status.ERROR, "problems": [problem(Level.ERROR, name, POINT_NOT_FOUND)]}
+        return self.publish_update(data, lambda project: self.point_changes(point, project))
+
+    def point_changes(self, old_point, project) -> ChangeSet:
+        new_point = next(point for point in project.points if point.id == old_point.id)
+        values = []
+        for field in PointField:
+            self.add_value(values, f"{old_point.id}, {field.label}",
+                           getattr(old_point, field.attribute), getattr(new_point, field.attribute), field.unit)
+        before = calculate_route_geometry(self.project.points)["length_m"]
+        after = calculate_route_geometry(project.points)["length_m"]
+        self.add_value(values, LABEL_ROUTE_LENGTH, before, after)
+        return ChangeSet(TITLE_POINT_CHANGE.format(name=old_point.id), values, self.all_sheets())
+
+    def update_pipe(self, **values):
+        """Готовит правку трубы и передаёт её в общую транзакцию выпуска."""
+        updates = self.parse_fields(values, PipeField)
+        if updates is None:
+            message = PIPE_FIELDS_REQUIRED.format(fields=", ".join(field.argument for field in PipeField))
+            return {"status": Status.ERROR, "problems": [problem(Level.ERROR, PIPE_WHERE, message)]}
+        data = self.project.with_pipe(**updates)
+        if data is None:
+            return {"status": Status.OK, "message": VALUES_UNCHANGED}
+        return self.publish_update(data, self.pipe_changes)
+
+    def pipe_changes(self, project) -> ChangeSet:
+        """Возвращает изменения полей трубы и перечень листов полного перевыпуска."""
+        values = []
+        for field in PipeField:
+            self.add_value(values, field.label, getattr(self.project.pipe, field.attribute),
+                           getattr(project.pipe, field.attribute), field.unit)
+        self.add_value(values, LABEL_OBJECT_PIPE_MATERIAL,
+                       self.project.object.pipe_material, project.object.pipe_material, "")
+        return ChangeSet(TITLE_PIPE_CHANGE, values, self.all_sheets())
 
     def change_profile_font(self, direction):
         size = ProfileStyle.font_step(self.font_size, direction)
         if size == self.font_size:
-            return {"status": "ok", "message": "Достигнута граница ряда размеров шрифта."}
+            return {"status": Status.OK, "message": FONT_LIMIT}
         values = []
-        self.add_value(values, "Базовый шрифт профиля", self.font_size, size, "мм")
-        change = {"title": "Изменение шрифта профиля", "values": values, "sheets": ["Профиль"]}
+        self.add_value(values, LABEL_PROFILE_FONT, self.font_size, size, UNIT_MM)
+        change = ChangeSet(TITLE_FONT_CHANGE, values, [self.documents.get(DocumentId.PROFILE)["short_title"]])
         return self.apply(self.project, change, size)

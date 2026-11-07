@@ -1,36 +1,40 @@
-import json
+from copy import deepcopy
 from xml.etree import ElementTree as ET
 
-from core.plan import create_plan
+import pytest
+
+from core import drawing_settings as settings
+from core.documents import DocumentSet
+from core.models import DocumentId
+from core.plan import PlanDrawing
+from core.validate import validate_input
 
 
-def test_plan_geometry_scale_direction_and_fit(route_data, tmp_path):
+def test_plan_geometry_scale_direction_and_fit(route_data, config):
     expected = [(77.5, 171), (137.5, 171), (197.5, 171), (197.5, 91), (277.5, 91), (357.5, 91)]
     ns = {"s": "http://www.w3.org/2000/svg"}
 
     # \u041f\u0435\u0440\u0435\u043d\u043e\u0441 \u0432\u0441\u0435\u0439 \u0442\u0440\u0430\u0441\u0441\u044b \u0432 \u0434\u0440\u0443\u0433\u0443\u044e \u0441\u0438\u0441\u0442\u0435\u043c\u0443 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442 \u043d\u0435 \u043c\u0435\u043d\u044f\u0435\u0442 \u0435\u0451 \u0433\u0435\u043e\u043c\u0435\u0442\u0440\u0438\u044e \u043d\u0430 \u043b\u0438\u0441\u0442\u0435.
-    for i, (dx, dy) in enumerate([(0, 0), (1000, -500)]):
-        data = json.loads(json.dumps(route_data))
+    for offset_x, offset_y in [(0, 0), (1000, -500)]:
+        data = deepcopy(route_data)
         data["object"].update(project_code="OTHER-03", name="\u0414\u0440\u0443\u0433\u043e\u0439 \u043e\u0431\u044a\u0435\u043a\u0442")
         for point in data["points"]:
-            point["x"] += dx
-            point["y"] += dy
-        input_file = tmp_path / "input.json"
-        input_file.write_text(json.dumps(data), encoding="utf-8")
-        output_file = tmp_path / f"plan_{i}.svg"
+            point["x"] += offset_x
+            point["y"] += offset_y
+        project, problems = validate_input(data)
+        assert not problems
 
-        result = create_plan(input_file, output_file)
+        drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
 
-        assert result["status"] == "ok"
-        assert result["scale"] == 1000
-        root = ET.parse(output_file).getroot()
-        assert root.get("viewBox") == "0 0 420 297"
+        assert drawing.scale == 1000
+        assert drawing.sheet.number == ""
+        root = ET.fromstring(drawing.render())
         geometry = root.find("s:g[@id='route-geometry']", ns)
         line = geometry.find("s:polyline", ns)
         coordinates = [tuple(map(float, pair.split(","))) for pair in line.get("points").split()]
         assert coordinates == expected
-        x_values = [x for x, y in coordinates]
-        y_values = [y for x, y in coordinates]
+        x_values = [sheet_x for sheet_x, sheet_y in coordinates]
+        y_values = [sheet_y for sheet_x, sheet_y in coordinates]
         assert (min(x_values) + max(x_values)) / 2 == (30 + 405) / 2
         assert (min(y_values) + max(y_values)) / 2 == (35 + 227) / 2
         assert coordinates[1][0] - coordinates[0][0] == 60  # 60 \u043c = 60 \u043c\u043c \u043f\u0440\u0438 1:1000.
@@ -41,74 +45,63 @@ def test_plan_geometry_scale_direction_and_fit(route_data, tmp_path):
         assert "\u0414\u0440\u0443\u0433\u043e\u0439 \u043e\u0431\u044a\u0435\u043a\u0442" in text
         assert "1:1000" in text
         labels = root.findall(".//s:text[@data-kind='coordinates']", ns)
-        assert [e.get("data-point-id") for e in labels] == [p["id"] for p in data["points"]]
-        assert [e.text for e in labels] == [
-            f'X={p["x"]:.2f}, Y={p["y"]:.2f}'.replace(".", ",") for p in data["points"]
+        assert [element.get("data-point-id") for element in labels] == [point["id"] for point in data["points"]]
+        assert [element.text for element in labels] == [
+            f'X={point["x"]:.2f}, Y={point["y"]:.2f}'.replace(".", ",") for point in data["points"]
         ]
 
     # \u0411\u043e\u043b\u044c\u0448\u0430\u044f \u0442\u0440\u0430\u0441\u0441\u0430 \u043d\u0435 \u0434\u043e\u043b\u0436\u043d\u0430 \u043c\u043e\u043b\u0447\u0430 \u043e\u0431\u0440\u0435\u0437\u0430\u0442\u044c\u0441\u044f \u0438\u043b\u0438 \u043c\u0435\u043d\u044f\u0442\u044c \u043c\u0430\u0441\u0448\u0442\u0430\u0431.
     data["points"][-1]["x"] += 1000
-    input_file.write_text(json.dumps(data), encoding="utf-8")
-    output_file = tmp_path / "too_large.svg"
-    result = create_plan(input_file, output_file)
-    assert result["status"] == "error"
-    assert "\u043d\u0435 \u043f\u043e\u043c\u0435\u0449\u0430\u0435\u0442\u0441\u044f" in result["message"]
-    assert not output_file.exists()
+    project, problems = validate_input(data)
+    assert not problems
+    with pytest.raises(ValueError, match="не помещается"):
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
 
 
-def test_plan_labels_follow_calculated_lengths_and_stations(route_data, tmp_path):
+def test_plan_labels_follow_calculated_lengths_and_stations(route_data, config):
     ns = {"s": "http://www.w3.org/2000/svg"}
     for p5_x, last_length, last_station in [(280, "80,00", "\u041f\u041a 3+60,00"), (300, "100,00", "\u041f\u041a 3+80,00")]:
-        data = json.loads(json.dumps(route_data))
+        data = deepcopy(route_data)
         data["points"][-1]["x"] = p5_x
-        input_file = tmp_path / "input.json"
-        input_file.write_text(json.dumps(data), encoding="utf-8")
-        output_file = tmp_path / "plan.svg"
-
-        result = create_plan(input_file, output_file)
-
-        assert result["status"] == "ok"
-        root = ET.parse(output_file).getroot()
+        project, problems = validate_input(data)
+        assert not problems
+        root = ET.fromstring(PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).render())
         labels = root.find("s:g[@id='route-labels']", ns)
         names = labels.findall("s:text[@data-kind='point-name']", ns)
-        assert [(e.get("data-point-id"), e.text) for e in names] == [
-            (f"P{i}", {2: "P2 / УП1", 3: "P3 / УП2"}.get(i, f"P{i}")) for i in range(6)
+        assert [(element.get("data-point-id"), element.text) for element in names] == [
+            (f"P{index}", {2: "P2 / УП1", 3: "P3 / УП2"}.get(index, f"P{index}")) for index in range(6)
         ]
         stations = labels.findall("s:text[@data-kind='station']", ns)
-        assert [e.text for e in stations] == [
+        assert [element.text for element in stations] == [
             "\u041f\u041a 0+00,00", "\u041f\u041a 0+60,00", "\u041f\u041a 1+20,00",
             "\u041f\u041a 2+00,00", "\u041f\u041a 2+80,00", last_station,
         ]
         lengths = labels.findall("s:text[@data-kind='length']", ns)
-        assert [e.text for e in lengths] == ["60,00", "60,00", "80,00", "80,00", last_length]
-        assert [(e.get("data-start-id"), e.get("data-end-id")) for e in lengths] == [
-            (f"P{i}", f"P{i + 1}") for i in range(5)
+        assert [element.text for element in lengths] == ["60,00", "60,00", "80,00", "80,00", last_length]
+        assert [(element.get("data-start-id"), element.get("data-end-id")) for element in lengths] == [
+            (f"P{index}", f"P{index + 1}") for index in range(5)
         ]
         line = root.find("s:g[@id='route-geometry']/s:polyline", ns)
         coordinates = [tuple(map(float, pair.split(","))) for pair in line.get("points").split()]
         assert coordinates[-1][0] - coordinates[0][0] == p5_x
-        assert all(30 <= x <= 405 and 35 <= y <= 227 for x, y in coordinates)
+        assert all(30 <= sheet_x <= 405 and 35 <= sheet_y <= 227 for sheet_x, sheet_y in coordinates)
         if p5_x == 300:
             pipe_label = labels.find(".//s:text[@data-kind='pipe-label']", ns)
             assert coordinates[-1][1] + float(pipe_label.get("y")) > float(lengths[-1].get("y")) + 5
-        for (x, y), name, station in zip(coordinates, names, stations):
-            assert float(name.get("y")) < float(station.get("y")) < y
+        for (sheet_x, sheet_y), name, station in zip(coordinates, names, stations):
+            assert float(name.get("y")) < float(station.get("y")) < sheet_y
         assert float(lengths[0].get("y")) > coordinates[0][1]
         assert float(lengths[2].get("x")) > coordinates[2][0]
 
 
-def test_plan_symbols_and_legend_use_input(route_data, tmp_path):
+def test_plan_symbols_and_legend_use_input(route_data, config):
     ns = {"s": "http://www.w3.org/2000/svg"}
     route_data["bends"].reverse()  # Номера УП следуют трассе, а не порядку записей.
     route_data["pipe"].update(material="ПЭ 100 & тест", outer_diameter_mm=160, wall_mm=9.5)
     route_data["object"]["pipe_material"] = route_data["pipe"]["material"]
-    input_file = tmp_path / "route.json"
-    input_file.write_text(json.dumps(route_data), encoding="utf-8")
-    output = tmp_path / "plan.svg"
-
-    assert create_plan(input_file, output)["status"] == "ok"
-
-    root = ET.parse(output).getroot()
+    project, problems = validate_input(route_data)
+    assert not problems
+    root = ET.fromstring(PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).render())
     line = root.find("s:g[@id='route-geometry']/s:polyline", ns)
     assert line.get("stroke-width") == "0.7"
     assert line.get("stroke-dasharray") == "6 2"
@@ -116,7 +109,7 @@ def test_plan_symbols_and_legend_use_input(route_data, tmp_path):
     label = root.find(".//s:text[@data-kind='pipe-label']", ns)
     assert "".join(label.itertext()) == "В1 — ПЭ 100 & тест SDR 17 ⌀160×9,5"
     names = root.findall(".//s:text[@data-kind='point-name']", ns)
-    assert [e.text for e in names][2:4] == ["P2 / УП1", "P3 / УП2"]
+    assert [element.text for element in names][2:4] == ["P2 / УП1", "P3 / УП2"]
     legend = root.find("s:g[@id='plan-legend']", ns)
     assert legend is not None
     assert "Условные обозначения" in " ".join(legend.itertext())
@@ -124,17 +117,14 @@ def test_plan_symbols_and_legend_use_input(route_data, tmp_path):
     assert symbol.get("stroke-dasharray") == line.get("stroke-dasharray")
 
 
-def test_plan_non_right_angle_and_conflicting_bend(route_data, tmp_path):
+def test_plan_non_right_angle_and_conflicting_bend(route_data, config):
     route_data["points"] = route_data["points"][:3]
-    for point, (x, y) in zip(route_data["points"], [(0, 0), (80, 0), (160, 80)]):
-        point.update(x=x, y=y)
+    for point, (point_x, point_y) in zip(route_data["points"], [(0, 0), (80, 0), (160, 80)]):
+        point.update(x=point_x, y=point_y)
     route_data["bends"] = [{"at": "P1", "angle_deg": 45}]
-    input_file = tmp_path / "route.json"
-    input_file.write_text(json.dumps(route_data), encoding="utf-8")
-    output = tmp_path / "plan_45.svg"
-
-    assert create_plan(input_file, output)["status"] == "ok"
-    root = ET.parse(output).getroot()
+    project, problems = validate_input(route_data)
+    assert not problems
+    root = ET.fromstring(PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).render())
     ns = {"s": "http://www.w3.org/2000/svg"}
     label = root.find(".//s:text[@data-kind='point-name'][@data-point-id='P1']", ns)
     assert label.text == "P1 / УП1 (45°00′)"
@@ -144,9 +134,36 @@ def test_plan_non_right_angle_and_conflicting_bend(route_data, tmp_path):
     assert float(label.get("x")) < turn_x
 
     route_data["bends"][0]["angle_deg"] = 90
-    input_file.write_text(json.dumps(route_data), encoding="utf-8")
-    rejected = tmp_path / "conflicting.svg"
-    result = create_plan(input_file, rejected)
-    assert result["status"] == "error"
-    assert any("угол отвода" in p["message"] for p in result["problems"])
-    assert not rejected.exists()
+    project, problems = validate_input(route_data)
+    assert any(problem["blocks_quantities"] and "угол отвода" in problem["message"] for problem in problems)
+
+
+def test_plan_accepts_scale_and_reports_fit_at_that_scale(route_data, config):
+    project, problems = validate_input(route_data)
+    assert not problems
+    drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN), scale=2000)
+    assert drawing.mm_per_meter == 0.5
+    assert drawing.coordinates[1][0] - drawing.coordinates[0][0] == 30
+    assert "1:2000" in drawing.sheet.title
+    root = ET.fromstring(drawing.render())
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    assert root.find("s:g[@id='route-geometry']", ns).get("data-scale") == "2000"
+    with pytest.raises(ValueError, match="не помещается на A3 при масштабе 1:500"):
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN), scale=500)
+    with pytest.raises(ValueError, match="Масштаб должен быть положительным"):
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN), scale=0)
+
+
+def test_vertical_pipe_leader_uses_drawing_field_center(route_data, config):
+    project, problems = validate_input(route_data)
+    assert not problems
+    drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
+    assert drawing.field_center_x() == (30 + 405) / 2
+    for sheet_x, anchor in [(200, "start"), (230, "end")]:
+        label = ET.fromstring(drawing.vertical_pipe_label("Труба", sheet_x, 100)).find("text")
+        assert label.get("text-anchor") == anchor
+        assert float(label.get("y")) + settings.PLAN_FONT_SIZE_MM < 100 + settings.PLAN_TEXT_BASELINE_OFFSET_MM
+        if anchor == "start":
+            assert float(label.get("x")) > sheet_x
+        else:
+            assert float(label.get("x")) < sheet_x

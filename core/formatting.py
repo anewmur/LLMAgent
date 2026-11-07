@@ -11,6 +11,16 @@ def format_number(value):
     return f"{number:.2f}".replace(".", ",")
 
 
+def format_pipe_value(value):
+    """Возвращает число с десятичной запятой без незначащих нулей для подписи трубы."""
+    return format_number(value).rstrip("0").rstrip(",")
+
+
+def format_change_value(value):
+    """Возвращает текст изменения без преобразования, а число — с принятым округлением."""
+    return value if isinstance(value, str) else format_number(value)
+
+
 def format_station(distance):
     if distance is None:
         return "—"

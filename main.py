@@ -1,56 +1,48 @@
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import APIError, OpenAI
+import yaml
 
-from agent.runtime import answer_question
+from agent.runtime import RouteAgent
+from agent.settings import BASE_URL, MODEL
+from agent.tools import ToolName
+from core.models import Status
+from core.paths import PROJECT_ROOT
 from core.session import RouteSession
 
 
-SYSTEM_PROMPT = (
-    "Ты помощник по расчётам трассы трубопровода. "
-    "Для каждого нового запроса расчёта вызывай нужные инструменты по их описаниям. "
-    "Расчётные значения бери только из результатов инструментов, не вычисляй их сам. "
-    "Для вопроса об отдельной точке или участке найди его в результате. "
-    "Учитывай историю разговора при уточнениях. "
-    "Не придумывай отсутствующие данные и не подменяй неизвестные значения нулём. "
-    "Сообщай проблемы понятным языком; причину отсутствующего результата бери из инструмента. "
-    "Не делай собственных выводов о влиянии ошибок. "
-    "Отвечай кратко, только по вопросу, без названий полей JSON, "
-    "описания устройства расчёта и пустых списков замечаний. "
-    "Общий статус успеха не означает готовность всей документации. "
-    "Положительный уклон означает подъём от начала к концу, отрицательный — спуск. "
-    "Глубина рассчитывается до наружного низа трубы. "
-    "Для правки точки используй update_point: name — имя, z — отметка оси трубы. "
-    "Если пользователь просит удалить отметку, передай z=null. "
-    "При ошибке проверки сообщи её причину и задай уточняющий вопрос; изменение не выполнено. "
-    "Конфликт материалов нельзя исправить изменением координат точки. "
-    "После успешной правки покажи перечень изменений из инструмента. "
-    "Для перевыпуска документов без изменения точки используй release_documents. "
-    "Состояние трассы хранится в текущей сессии. Прочностные расчёты недоступны."
-)
+INPUT_PATH = PROJECT_ROOT / "input" / "input.json"
+OUTPUT_DIR = PROJECT_ROOT / "output"
+CONFIG_PATH = PROJECT_ROOT / "config" / "requirements.yaml"
+SYSTEM_PROMPT_PATH = PROJECT_ROOT / "agent" / "system_prompt.md"
+
+
+def load_config():
+    return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
 def main():
-    session = RouteSession()
+    config = load_config()
+    system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+    session = RouteSession(INPUT_PATH, OUTPUT_DIR, config)
     initial = session.release()
-    if initial["status"] == "error":
+    if initial["status"] == Status.ERROR:
         print("Начальный выпуск не выполнен:", initial.get("problems") or initial.get("message"))
     handlers = {
-        "calculate_route_length": session.calculate_route_length,
-        "calculate_pipe_levels": session.calculate_pipe_levels,
-        "calculate_material_quantities": session.calculate_material_quantities,
-        "change_profile_font": session.change_profile_font,
-        "update_point": session.update_point,
-        "release_documents": session.release,
+        ToolName.CALCULATE_ROUTE_LENGTH: session.calculate_route_length,
+        ToolName.CALCULATE_PIPE_LEVELS: session.calculate_pipe_levels,
+        ToolName.CALCULATE_MATERIAL_QUANTITIES: session.calculate_material_quantities,
+        ToolName.CHANGE_PROFILE_FONT: session.change_profile_font,
+        ToolName.UPDATE_POINT: session.update_point,
+        ToolName.RELEASE_DOCUMENTS: session.release,
     }
-    load_dotenv(Path(__file__).resolve().parent / "api_keys.env")
+    load_dotenv(PROJECT_ROOT / "api_keys.env")
     client = OpenAI(
         api_key=os.environ["DEEPSEEK_API_KEY"],
-        base_url="https://api.deepseek.com",
+        base_url=BASE_URL,
     )
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    agent = RouteAgent(client, handlers, system_prompt, model=MODEL, tool_log=session.tool_log)
     print("Задайте вопрос о трассе. Для завершения введите «выход».")
 
     while True:
@@ -65,7 +57,7 @@ def main():
             continue
 
         try:
-            answer = answer_question(client, messages, question, handlers, tool_log=session.tool_log)
+            answer = agent.ask(question)
         except APIError:
             print("Агент: Не удалось получить ответ модели. Результаты выполненных инструментов сохранены.")
             continue

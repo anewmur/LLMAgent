@@ -1,5 +1,5 @@
-<g xmlns="http://www.w3.org/2000/svg" id="general-data" font-family="Arial, sans-serif" fill="black">
-  <g font-size="3.5">
+<g xmlns="http://www.w3.org/2000/svg" id="general-data" font-family="${font_family}" fill="black">
+  <g font-size="${font_size}">
     <text x="30" y="32">Ведомость рабочих чертежей основного комплекта</text>
     <text x="30" y="92">Ведомость основных комплектов рабочих чертежей</text>
     <text x="230" y="32">Ведомость ссылочных и прилагаемых документов</text>

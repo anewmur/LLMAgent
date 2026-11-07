@@ -1,4 +1,4 @@
-<g xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif" fill="black">
+<g xmlns="http://www.w3.org/2000/svg" font-family="${font_family}" fill="black">
   <rect width="${width}" height="${height}" fill="none" stroke="black" stroke-width="0.5"/>
   <path d="${grid}" fill="none" stroke="black" stroke-width="0.3"/>
   ${contents}
