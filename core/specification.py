@@ -8,7 +8,7 @@ from core.models import Project, SpecificationColumn, UNIT_M, UNIT_PIECE
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.tables import TableCell
-from core.templates import render_template
+from core.formatting import render_template
 
 
 # форма 1 ГОСТ 21.110-2013, ширины граф в миллиметрах.

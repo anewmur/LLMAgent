@@ -7,7 +7,7 @@ from svglib.svglib import svg2rlg
 
 from core import drawing_settings as settings
 from core.paths import FONT_PATH, TEMPLATES_DIR
-from core.templates import render_template
+from core.formatting import render_template
 
 
 TEMPLATE_PATH = TEMPLATES_DIR / "sheet.svg"

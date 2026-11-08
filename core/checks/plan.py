@@ -146,4 +146,4 @@ class PlanChecks(BaseChecks):
 
     def run(self):
         """Выполняет проверки группы в прежнем порядке."""
-        self.run_checks(self.check_plan_geometry, self.check_plan_labels, self.check_plan_coordinates, self.check_plan_label_overlap)
+        return self.run_checks(self.check_plan_geometry, self.check_plan_labels, self.check_plan_coordinates, self.check_plan_label_overlap)

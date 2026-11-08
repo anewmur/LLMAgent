@@ -59,7 +59,7 @@ def test_nonfinite_level_inputs_are_rejected(route_data, field, value):
     project, problems = validate_input(route_data)
 
     assert project is None
-    assert any(field in problem["where"] for problem in problems)
+    assert any(field in problem.where for problem in problems)
 
 
 @pytest.mark.parametrize("diameter_mm", [0, -110])
@@ -69,7 +69,7 @@ def test_nonpositive_diameter_is_rejected(route_data, diameter_mm):
     project, problems = validate_input(route_data)
 
     assert project is None
-    assert any("outer_diameter_mm" in problem["where"] for problem in problems)
+    assert any("outer_diameter_mm" in problem.where for problem in problems)
 
 
 def test_derived_levels_keep_decimal_half_up(route_data):

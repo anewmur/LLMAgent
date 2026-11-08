@@ -51,4 +51,4 @@ class PdfChecks(BaseChecks):
 
     def run(self):
         """Выполняет проверки группы в прежнем порядке."""
-        self.run_checks(self.check_pdf)
+        return self.run_checks(self.check_pdf)

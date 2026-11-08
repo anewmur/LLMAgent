@@ -5,7 +5,7 @@ from core.paths import TEMPLATES_DIR
 from core.profile_grid import GRID_HEIGHT, POINT_ORIGIN, ProfileGrid
 from core.profile_style import ProfileStyle
 from core.sheet import Sheet
-from core.templates import render_template
+from core.formatting import render_template
 
 
 TEMPLATE_PATH = TEMPLATES_DIR / "profile.svg"

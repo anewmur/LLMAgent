@@ -6,7 +6,7 @@ from core.calculations import calculate_route_geometry
 from core.formatting import format_number, format_pipe_value, format_station
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
-from core.templates import render_template
+from core.formatting import render_template
 
 
 LEGEND_PATH = TEMPLATES_DIR / "plan_legend.svg"

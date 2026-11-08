@@ -10,10 +10,13 @@ from core.calculations import (
 )
 from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
-from core.models import Change, ChangeSet, DocumentId, Level, PipeField, PointField, Status, UNIT_M, UNIT_MM
+from core.models import (
+    Change, ChangeSet, DocumentId, Level, PipeField, PointField,
+    Problem, ProblemCode, Status, UNIT_M, UNIT_MM,
+)
 from core.profile_style import ProfileStyle
 from core.release import create_package
-from core.validate import problem, validate_input
+from core.validate import validate_input
 
 
 VALUES_UNCHANGED = "Значения не изменились."
@@ -37,39 +40,51 @@ class RouteSession:
     def __init__(self, input_file, output_dir, config):
         self.project, self.problems = load_project(input_file)
         if self.project is None:
-            raise ValueError("; ".join(problem["message"] for problem in self.problems))
+            raise ValueError("; ".join(problem.message for problem in self.problems))
         self.config = config
         self.documents = DocumentSet(self.project, self.config)
         self.output_dir = Path(output_dir)
         self.changes, self.tool_log = [], []
         self.font_size = DEFAULT_FONT_SIZE_MM
 
+    @staticmethod
+    def problem_response(status, problems, **extra):
+        """Собирает ответ инструмента с прежним форматом списка проблем."""
+        return {"status": status, **extra, "problems": [problem.to_dict() for problem in problems]}
+
+    def error_response(self, code, message, where):
+        """Возвращает ответ с одной ошибкой аргументов инструмента."""
+        return self.problem_response(Status.ERROR, [Problem(Level.ERROR, code, message, where)])
+
     # Обёртки подставляют текущий проект в расчётные инструменты LLM.
     def calculate_route_length(self):
-        if any(problem["blocks_length"] for problem in self.problems):
-            return {"status": Status.ERROR, "problems": self.problems}
-        return {"status": Status.OK, **calculate_route_length(self.project), "problems": self.problems}
+        if any(problem.blocks_length for problem in self.problems):
+            return self.problem_response(Status.ERROR, self.problems)
+        return self.problem_response(Status.OK, self.problems, **calculate_route_length(self.project))
 
     def calculate_pipe_levels(self):
-        return {"status": Status.OK, **calculate_pipe_levels(self.project), "problems": self.problems}
+        return self.problem_response(Status.OK, self.problems, **calculate_pipe_levels(self.project))
 
     def calculate_material_quantities(self):
-        if any(problem["blocks_length"] for problem in self.problems):
-            return {"status": Status.ERROR, "problems": self.problems}
-        blocking = [problem for problem in self.problems if problem["blocks_quantities"]]
+        if any(problem.blocks_length for problem in self.problems):
+            return self.problem_response(Status.ERROR, self.problems)
+        blocking = [problem for problem in self.problems if problem.blocks_quantities]
         if blocking:
-            return {"status": Status.ERROR, "problems": blocking}
-        return {"status": Status.OK, **calculate_material_quantities(self.project), "problems": self.problems}
+            return self.problem_response(Status.ERROR, blocking)
+        return self.problem_response(Status.OK, self.problems, **calculate_material_quantities(self.project))
 
     def release(self):
         if self.has_errors(self.project, self.problems):
-            return {"status": Status.ERROR, "message": INPUT_INVALID, "problems": self.problems}
-        return create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)
+            return self.problem_response(Status.ERROR, self.problems, message=INPUT_INVALID)
+        result = create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)
+        if "checks" in result:
+            result["checks"] = [check.to_dict() for check in result["checks"]]
+        return result
 
     @staticmethod
     def has_errors(project, problems):
         """Проверяет, отсутствует ли проект или есть ли ошибки проверки данных."""
-        return project is None or any(problem["level"] == Level.ERROR for problem in problems)
+        return project is None or any(problem.level == Level.ERROR for problem in problems)
 
     @staticmethod
     def parse_fields(values, field_enum):
@@ -84,7 +99,7 @@ class RouteSession:
         """Проверяет новые данные и выпускает комплект; при ошибке проект не меняется."""
         project, problems = validate_input(data)
         if self.has_errors(project, problems):
-            return {"status": Status.ERROR, "problems": problems}
+            return self.problem_response(Status.ERROR, problems)
         return self.apply(project, make_changes(project), self.font_size)
 
     def all_sheets(self):
@@ -105,21 +120,21 @@ class RouteSession:
         self.changes.append(change)
         response = {"status": result["status"], "changes": asdict(change), "pdf": result["pdf"]}
         if result["status"] == Status.WARNING:
-            response["warnings"] = [check["detail"] for check in result.get("checks", [])
-                                    if check.get("level") == Level.WARNING and not check["passed"]]
+            response["warnings"] = [check.message for check in result.get("checks", [])
+                                    if check.status == Status.WARNING]
         return response
 
     def update_point(self, name, **values):
         """Готовит правку точки и передаёт её в общую транзакцию выпуска."""
         updates = self.parse_fields(values, PointField)
         if updates is None:
-            return {"status": Status.ERROR, "problems": [problem(Level.ERROR, name, FIELDS_REQUIRED)]}
+            return self.error_response(ProblemCode.FIELDS_REQUIRED, FIELDS_REQUIRED, name)
         point = next((point for point in self.project.points if point.id == name), None)
         if point is not None and all(getattr(point, field) == value for field, value in updates.items()):
             return {"status": Status.OK, "message": VALUES_UNCHANGED}
         data = self.project.with_point(name, **updates)
         if data is None:
-            return {"status": Status.ERROR, "problems": [problem(Level.ERROR, name, POINT_NOT_FOUND)]}
+            return self.error_response(ProblemCode.POINT_NOT_FOUND, POINT_NOT_FOUND, name)
         return self.publish_update(data, lambda project: self.point_changes(point, project))
 
     def point_changes(self, old_point, project) -> ChangeSet:
@@ -138,7 +153,7 @@ class RouteSession:
         updates = self.parse_fields(values, PipeField)
         if updates is None:
             message = PIPE_FIELDS_REQUIRED.format(fields=", ".join(field.argument for field in PipeField))
-            return {"status": Status.ERROR, "problems": [problem(Level.ERROR, PIPE_WHERE, message)]}
+            return self.error_response(ProblemCode.FIELDS_REQUIRED, message, PIPE_WHERE)
         data = self.project.with_pipe(**updates)
         if data is None:
             return {"status": Status.OK, "message": VALUES_UNCHANGED}

@@ -4,7 +4,7 @@ from xml.sax.saxutils import escape
 from core import drawing_settings as settings
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.paths import TEMPLATES_DIR
-from core.templates import render_template
+from core.formatting import render_template
 
 
 TEMPLATE_PATH = TEMPLATES_DIR / "register_table.svg"

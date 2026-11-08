@@ -5,11 +5,11 @@ import pytest
 from core.validate import validate_input
 
 
-def find_point(data, pid):
-    for p in data["points"]:
-        if p["id"] == pid:
-            return p
-    raise KeyError(pid)
+def find_point(data, point_id):
+    for point in data["points"]:
+        if point["id"] == point_id:
+            return point
+    raise KeyError(point_id)
 
 
 def test_original_input_has_no_problems(route_data):
@@ -22,28 +22,28 @@ def test_missing_axis_p3(route_data):
     changed = copy.deepcopy(route_data)
     del find_point(changed, "P3")["axis"]
     project, problems = validate_input(changed)
-    assert any(p["where"] == "P3" and "axis" in p["message"] for p in problems)
+    assert any(problem.where == "P3" and "axis" in problem.message for problem in problems)
 
 
 def test_material_conflict(route_data):
     changed = copy.deepcopy(route_data)
     changed["pipe"]["material"] = "\u041f\u042d 80"
     project, problems = validate_input(changed)
-    assert any(p["where"] == "pipe" and "\u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b" in p["message"] for p in problems)
+    assert any(problem.where == "pipe" and "\u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b" in problem.message for problem in problems)
 
 
 def test_bend_on_missing_point(route_data):
     changed = copy.deepcopy(route_data)
     changed["bends"][0]["at"] = "P9"
     project, problems = validate_input(changed)
-    assert any(p["where"] == "P9" for p in problems)
+    assert any(problem.where == "P9" for problem in problems)
 
 
 def test_duplicate_point_id(route_data):
     changed = copy.deepcopy(route_data)
     changed["points"][1]["id"] = "P0"
     project, problems = validate_input(changed)
-    assert any("\u043f\u043e\u0432\u0442\u043e\u0440\u044f\u0435\u0442\u0441\u044f" in p["message"] for p in problems)
+    assert any("\u043f\u043e\u0432\u0442\u043e\u0440\u044f\u0435\u0442\u0441\u044f" in problem.message for problem in problems)
 
 
 def test_coincident_neighboring_points(route_data):
@@ -56,9 +56,9 @@ def test_coincident_neighboring_points(route_data):
 
     assert project is not None
     assert any(
-        p["where"] == "P0\u2013P1" and p["blocks_length"]
-        and "\u043d\u0443\u043b\u044e" in p["message"]
-        for p in problems
+        problem.where == "P0\u2013P1" and problem.blocks_length
+        and "\u043d\u0443\u043b\u044e" in problem.message
+        for problem in problems
     )
 
 
@@ -83,9 +83,9 @@ def test_bend_angle_differs_from_route_geometry(route_data):
 
     bend_point = changed["bends"][0]["at"]
     assert any(
-        p["where"] == bend_point and p["blocks_quantities"]
-        and "45" in p["message"] and "90.0" in p["message"]
-        for p in problems
+        problem.where == bend_point and problem.blocks_quantities
+        and "45" in problem.message and "90.0" in problem.message
+        for problem in problems
     )
 
 
@@ -95,4 +95,4 @@ def test_bend_at_route_end(route_data):
 
     project, problems = validate_input(changed)
 
-    assert any("\u043a\u043e\u043d\u0446\u0435\u0432\u043e\u0439" in p["message"] and p["blocks_quantities"] for p in problems)
+    assert any("\u043a\u043e\u043d\u0446\u0435\u0432\u043e\u0439" in problem.message and problem.blocks_quantities for problem in problems)

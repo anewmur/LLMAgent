@@ -135,7 +135,7 @@ def test_plan_non_right_angle_and_conflicting_bend(route_data, config):
 
     route_data["bends"][0]["angle_deg"] = 90
     project, problems = validate_input(route_data)
-    assert any(problem["blocks_quantities"] and "угол отвода" in problem["message"] for problem in problems)
+    assert any(problem.blocks_quantities and "угол отвода" in problem.message for problem in problems)
 
 
 def test_plan_accepts_scale_and_reports_fit_at_that_scale(route_data, config):

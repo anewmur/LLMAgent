@@ -27,6 +27,65 @@ class Level(str, Enum):
     __repr__ = str.__repr__
 
 
+class ProblemCode(str, Enum):
+    """Коды ошибок исходных данных и аргументов инструментов."""
+    STRUCTURE = "structure"
+    MISSING_AXIS = "missing_axis"
+    MISSING_GROUND = "missing_ground"
+    DUPLICATE_POINT = "duplicate_point"
+    MISSING_BEND_POINT = "missing_bend_point"
+    DUPLICATE_BEND = "duplicate_bend"
+    MATERIAL_CONFLICT = "material_conflict"
+    ZERO_LENGTH = "zero_length"
+    END_BEND = "end_bend"
+    BEND_ANGLE = "bend_angle"
+    FIELDS_REQUIRED = "fields_required"
+    POINT_NOT_FOUND = "point_not_found"
+    __str__ = str.__str__
+    __repr__ = str.__repr__
+
+
+@dataclass(frozen=True)
+class Problem:
+    """Ошибка исходных данных; код определяет блокируемые расчёты."""
+    level: Level
+    code: ProblemCode
+    message: str
+    where: str = ""
+
+    @property
+    def blocks_length(self):
+        """Возвращает, препятствует ли проблема расчёту длины."""
+        return self.code in (ProblemCode.DUPLICATE_POINT, ProblemCode.ZERO_LENGTH)
+
+    @property
+    def blocks_quantities(self):
+        """Возвращает, препятствует ли проблема расчёту количеств."""
+        return self.code in (
+            ProblemCode.MISSING_BEND_POINT, ProblemCode.DUPLICATE_BEND,
+            ProblemCode.MATERIAL_CONFLICT, ProblemCode.END_BEND, ProblemCode.BEND_ANGLE,
+        )
+
+    def to_dict(self):
+        """Возвращает прежние поля ответа инструмента; внутренний код в JSON не выводится."""
+        return {"level": self.level, "where": self.where, "message": self.message,
+                "blocks_length": self.blocks_length, "blocks_quantities": self.blocks_quantities}
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    """Результат проверки готового комплекта."""
+    name: str
+    status: Status
+    message: str
+    reference: str = ""
+
+    def to_dict(self):
+        """Возвращает прежний формат проверки для ответа инструмента и отчёта."""
+        return {"id": self.name, "passed": self.status == Status.OK, "detail": self.message,
+                "level": Level(self.status)}
+
+
 class DocumentId(str, Enum):
     """Идентификаторы чертежей комплекта из конфигурации."""
     GENERAL = "general"

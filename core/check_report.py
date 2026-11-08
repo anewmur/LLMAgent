@@ -7,22 +7,22 @@ from core.assumptions import (
     SHARED_ASSUMPTIONS,
 )
 from core.formatting import format_pipe_value
-from core.models import Level, Status
+from core.models import CheckResult, Status
 from core.paths import TEMPLATES_DIR
-from core.templates import render_template
+from core.formatting import render_template
 
 
-def check_status(checks):
+def check_status(checks: list[CheckResult]):
     """Возвращает статус: ошибка имеет приоритет перед предупреждением и успехом."""
-    if any(not check["passed"] and check.get("level", Level.ERROR) == Level.ERROR for check in checks):
+    if any(check.status == Status.ERROR for check in checks):
         return Status.ERROR
-    if any(not check["passed"] for check in checks):
+    if any(check.status == Status.WARNING for check in checks):
         return Status.WARNING
     return Status.OK
 
 
 class CheckReport:
-    """Отчёт различает автоматическую сверку, просмотр и ограничения."""
+    """Отчёт об автоматической сверке, просмотр и ограничения."""
 
     def __init__(self, project, config, checks, vertical_scale):
         """Сохраняет результаты проверок и вертикальный масштаб построенного профиля."""
@@ -61,11 +61,17 @@ class CheckReport:
         rows = []
         for check in self.checks:
             result = "Пройдено"
-            if not check["passed"]:
-                result = "Предупреждение" if check.get("level") == Level.WARNING else "Ошибка"
-            detail = check["detail"].replace("|", "\\|").replace("\n", " ")
-            rows.append(f'| {check["id"]} | {result} | {detail} |')
+            if check.status != Status.OK:
+                result = "Предупреждение" if check.status == Status.WARNING else "Ошибка"
+            detail = check.message.replace("|", "\\|").replace("\n", " ")
+            rows.append(f'| {check.name} | {result} | {detail} |')
         return "\n".join(rows)
+
+    @staticmethod
+    def failure_message(checks):
+        """Возвращает сообщение об отказе с названиями непройденных проверок."""
+        names = ", ".join(check.name for check in checks if check.status != Status.OK)
+        return "Проверки готовых документов не пройдены: " + names
 
     def write(self, folder):
         """Записывает отчёт и возвращает общий статус проверок."""

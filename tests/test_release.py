@@ -8,6 +8,7 @@ from core import calculations, release as release_module
 from core.assumptions import COORDINATE_ORIENTATION_NOTE, SHARED_ASSUMPTIONS
 from core.checks import base as checks_module
 from core.documents import DocumentSet
+from core.models import Status
 from core.package_checks import PackageChecks
 from core.plan import PlanDrawing
 from core.profile import ProfileDrawing
@@ -36,7 +37,7 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
             result = create_package(project, folder, config)
             validation.assert_not_called()
         assert result["status"] == "ok", result
-        assert all(check["passed"] for check in result["checks"])
+        assert all(check.status == Status.OK for check in result["checks"])
         expected = {"general.svg", "plan.svg", "profile.svg", "specification.svg", "specification.csv", "check_report.md"}
         expected.update("pdf/" + name + ".pdf" for name in ["general", "plan", "profile", "specification", "package"])
         assert {path.relative_to(folder).as_posix() for path in folder.rglob("*") if path.is_file()} == expected
@@ -73,7 +74,7 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
     assert geometry.call_count == levels.call_count == 1
     assert checker.run() == checks
     assert geometry.call_count == levels.call_count == 2
-    assert not next(check["passed"] for check in checks if check["id"] == "profile_values")
+    assert next(check.status for check in checks if check.name == "profile_values") != Status.OK
 
 
 def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_data, tmp_path, config, monkeypatch):
@@ -89,8 +90,8 @@ def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_dat
     result = create_package(project, folder, config)
 
     assert result["status"] == "warning", result
-    assert any(check["id"] == "plan_label_overlap" and check["level"] == "warning" for check in result["checks"])
-    assert not any(not check["passed"] and check["level"] == "error" for check in result["checks"])
+    assert any(check.name == "plan_label_overlap" and check.status == Status.WARNING for check in result["checks"])
+    assert not any(check.status == Status.ERROR for check in result["checks"])
     plan = ET.parse(folder / "plan.svg").getroot()
     stamp_title = plan.find(".//s:text[@x='100'][@y='35.5']", NS)
     assert "".join(stamp_title.itertext()) == "План сетей водоснабжения (1:2000)"

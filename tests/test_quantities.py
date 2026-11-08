@@ -82,4 +82,4 @@ def test_invalid_bend_angle_is_rejected(route_data, angle):
 
     project, problems = validate_input(route_data)
     assert project is None
-    assert any("angle_deg" in problem["where"] for problem in problems)
+    assert any("angle_deg" in problem.where for problem in problems)

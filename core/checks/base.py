@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 from pypdf.errors import PdfReadError
 
 from core.calculations import calculate_point_levels, calculate_route_geometry
-from core.models import Level
+from core.models import CheckResult, Level, Status
 
 
 NS = {"s": "http://www.w3.org/2000/svg"}
@@ -19,7 +19,8 @@ class CheckContext:
         self.geometry = calculate_route_geometry(project.points)
         self.levels = calculate_point_levels(project.points, project.pipe.outer_diameter_mm)
         self.stations = [0] + [section["cumsum_dist_m"] for section in self.geometry["sections"]]
-        self.results, self.roots = [], {}
+        self.results: list[CheckResult] = []
+        self.roots = {}
 
 
 class BaseChecks:
@@ -33,13 +34,15 @@ class BaseChecks:
 
     def add(self, name, passed, detail, level=Level.ERROR):
         """Добавляет результат одной проверки с её прежним идентификатором."""
-        self.results.append({"id": name, "passed": passed, "detail": detail,
-                             "level": Level.OK if passed else level})
+        status = Status.OK if passed else Status(level)
+        self.results.append(CheckResult(name, status, detail))
 
-    def run_checks(self, *checks):
+    def run_checks(self, *checks) -> list[CheckResult]:
         """Выполняет проверки по порядку и записывает ошибки чтения под прежними id."""
         for check in checks:
             try:
                 check()
             except (OSError, ValueError, AttributeError, IndexError, KeyError, ET.ParseError, PdfReadError) as error:
                 self.add(check.__name__, False, str(error))
+
+        return self.results

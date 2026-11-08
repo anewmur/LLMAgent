@@ -102,13 +102,13 @@ def test_profile_missing_levels_and_invalid_geometry(route_data, case, config):
         route_data["points"][1]["x"] = 0
     project, problems = validate_input(route_data)
     if case == "zero_length":
-        assert any(problem["blocks_length"] for problem in problems)
+        assert any(problem.blocks_length for problem in problems)
         return
     if case != "missing":
         with pytest.raises(ValueError):
             ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE)).render()
         return
-    assert {problem["where"] for problem in problems} == {"P2", "P4"}
+    assert {problem.where for problem in problems} == {"P2", "P4"}
     root = ET.fromstring(ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE)).render())
     ground = root.find(".//s:path[@id='ground-line']", NS).get("d").split()
     pipe = root.find(".//s:path[@id='pipe-bottom-line']", NS).get("d").split()

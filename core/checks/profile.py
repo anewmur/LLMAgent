@@ -103,4 +103,4 @@ class ProfileChecks(BaseChecks):
 
     def run(self):
         """Выполняет проверки группы в прежнем порядке."""
-        self.run_checks(self.check_profile_values, self.check_profile_geometry)
+        return self.run_checks(self.check_profile_values, self.check_profile_geometry)

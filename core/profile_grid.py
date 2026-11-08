@@ -3,7 +3,7 @@ from xml.sax.saxutils import escape, quoteattr
 from core import drawing_settings as settings
 from core.formatting import format_number, format_pipe_value, format_station
 from core.paths import TEMPLATES_DIR
-from core.templates import render_template
+from core.formatting import render_template
 
 
 TEMPLATE_PATH = TEMPLATES_DIR / "profile_grid.svg"

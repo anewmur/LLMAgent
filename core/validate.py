@@ -2,20 +2,10 @@ import math
 
 from pydantic import ValidationError
 
-from core.models import Level, Project
+from core.models import Level, Problem, ProblemCode, Project
 
 
 ANGLE_TOLERANCE_DEG = 0.5  # Допуск сравнения угла отвода, градусы.
-
-
-def problem(level, where, message, blocks_length=False, blocks_quantities=False):
-    return {
-        "level": level,
-        "where": where,
-        "message": message,
-        "blocks_length": blocks_length,
-        "blocks_quantities": blocks_quantities,
-    }
 
 
 class InputValidator:
@@ -24,10 +14,10 @@ class InputValidator:
     def __init__(self, data):
         self.data = data
         self.project = None
-        self.problems = []
+        self.problems: list[Problem] = []
         self.ids = []
 
-    def validate(self):
+    def validate(self) -> tuple[Project | None, list[Problem]]:
         self.problems = []
         if not self.check_structure():
             return None, self.problems
@@ -47,7 +37,7 @@ class InputValidator:
         except ValidationError as error:
             for item in error.errors():
                 path = ".".join(str(part) for part in item["loc"])
-                self.problems.append(problem(Level.ERROR, path, item["msg"]))
+                self.problems.append(Problem(Level.ERROR, ProblemCode.STRUCTURE, item["msg"], path))
             return False
         self.ids = [point.id for point in self.project.points]
         return True
@@ -55,53 +45,50 @@ class InputValidator:
     def check_levels(self):
         for point in self.project.points:
             if point.axis is None:
-                self.problems.append(problem(
-                    Level.ERROR, point.id, "нет отметки оси трубы (axis)"
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.MISSING_AXIS, "нет отметки оси трубы (axis)", point.id
                 ))
             if point.ground is None:
-                self.problems.append(problem(
-                    Level.ERROR, point.id, "нет отметки земли (ground)"
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.MISSING_GROUND, "нет отметки земли (ground)", point.id
                 ))
 
     def check_ids(self):
-        for pid in set(self.ids):
-            if self.ids.count(pid) > 1:
-                self.problems.append(problem(
-                    Level.ERROR, pid, "идентификатор точки повторяется",
-                    blocks_length=True,
+        for point_id in set(self.ids):
+            if self.ids.count(point_id) > 1:
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.DUPLICATE_POINT, "идентификатор точки повторяется", point_id,
                 ))
 
     def check_bends(self):
         for bend in self.project.bends:
             if bend.at not in self.ids:
-                self.problems.append(problem(
-                    Level.ERROR, bend.at, "отвод ссылается на несуществующую точку",
-                    blocks_quantities=True,
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.MISSING_BEND_POINT, "отвод ссылается на несуществующую точку", bend.at,
                 ))
         bend_points = [bend.at for bend in self.project.bends]
-        for pid in set(bend_points):
-            if bend_points.count(pid) > 1:
-                self.problems.append(problem(
-                    Level.ERROR, pid, "в одной точке повторно указан отвод",
-                    blocks_quantities=True,
+        for point_id in set(bend_points):
+            if bend_points.count(point_id) > 1:
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.DUPLICATE_BEND, "в одной точке повторно указан отвод", point_id,
                 ))
 
     def check_materials(self):
         if self.project.pipe.material != self.project.object.pipe_material:
-            self.problems.append(problem(
-                Level.ERROR, "pipe",
+            self.problems.append(Problem(
+                Level.ERROR, ProblemCode.MATERIAL_CONFLICT,
                 f"материал трубы ({self.project.pipe.material}) не совпадает "
                 f"с описанием объекта ({self.project.object.pipe_material})",
-                blocks_quantities=True,
+                where="pipe",
             ))
 
     def check_segments(self):
         for start, end in zip(self.project.points, self.project.points[1:]):
             if start.x == end.x and start.y == end.y:
-                self.problems.append(problem(
-                    Level.ERROR, f"{start.id}–{end.id}",
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.ZERO_LENGTH,
                     "соседние точки совпадают по X и Y: длина участка в плане равна нулю",
-                    blocks_length=True,
+                    where=f"{start.id}–{end.id}",
                 ))
 
     def turn_angle(self, index):
@@ -124,23 +111,22 @@ class InputValidator:
                 continue  # Несуществующую точку отмечает check_bends().
             index = self.ids.index(bend.at)
             if index == 0 or index == len(self.project.points) - 1:
-                self.problems.append(problem(
-                    Level.ERROR, bend.at,
-                    "отвод указан в концевой точке трассы, где поворота нет",
-                    blocks_quantities=True,
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.END_BEND,
+                    "отвод указан в концевой точке трассы, где поворота нет", where=bend.at,
                 ))
                 continue
             turn_deg = self.turn_angle(index)
             if turn_deg is None:
                 continue
             if abs(turn_deg - bend.angle_deg) > ANGLE_TOLERANCE_DEG:
-                self.problems.append(problem(
-                    Level.ERROR, bend.at,
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.BEND_ANGLE,
                     f"угол отвода в данных {bend.angle_deg:g}, "
                     f"по координатам поворот {turn_deg:.1f}",
-                    blocks_quantities=True,
+                    where=bend.at,
                 ))
 
 
-def validate_input(data):
+def validate_input(data) -> tuple[Project | None, list[Problem]]:
     return InputValidator(data).validate()

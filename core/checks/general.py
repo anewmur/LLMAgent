@@ -23,4 +23,4 @@ class GeneralChecks(BaseChecks):
 
     def run(self):
         """Выполняет проверки группы в прежнем порядке."""
-        self.run_checks(self.check_general)
+        return self.run_checks(self.check_general)

@@ -4,7 +4,7 @@ from core.checks.base import CheckContext
 from core.checks.plan import PlanChecks
 from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
-from core.models import DocumentId
+from core.models import DocumentId, Status
 from core.plan import PlanDrawing
 from core.session import RouteSession
 from core.validate import validate_input
@@ -31,8 +31,8 @@ def test_overlap_checks_label_pairs_and_diagonal_route(route_data, tmp_path, con
 
     checks.check_plan_label_overlap()
 
-    assert all(check["id"] == "plan_label_overlap" and check["level"] == "warning" for check in checks.results)
-    messages = [check["detail"] for check in checks.results]
+    assert all(check.name == "plan_label_overlap" and check.status == Status.WARNING for check in checks.results)
+    messages = [check.message for check in checks.results]
     assert any('пересекаются подписи "P1" и "ПК"' in message for message in messages)
     assert any('подпись "P1" пересекает трассу' in message for message in messages)
     assert not any("FAR" in message or "ROTATED" in message for message in messages)

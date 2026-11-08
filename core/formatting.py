@@ -1,4 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
+from string import Template
 
 
 def format_number(value):
@@ -29,3 +31,8 @@ def format_station(distance):
     station = int(distance // 100)
     meters = distance % 100
     return f"ПК {station}+{meters:05.2f}".replace(".", ",")
+
+
+def render_template(path, values):
+    """Читает шаблон в UTF-8 и возвращает текст с безопасной подстановкой значений."""
+    return Template(Path(path).read_text(encoding="utf-8")).safe_substitute(values)

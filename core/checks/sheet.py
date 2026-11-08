@@ -33,4 +33,4 @@ class SheetChecks(BaseChecks):
 
     def run(self):
         """Выполняет проверки группы в прежнем порядке."""
-        self.run_checks(self.check_sheets)
+        return self.run_checks(self.check_sheets)

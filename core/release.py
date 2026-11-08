@@ -17,7 +17,7 @@ from core.plan import PlanDrawing
 from core.profile import ProfileDrawing
 from core.sheet import svg_to_pdf
 from core.specification import SpecificationDrawing
-from core.templates import render_template
+from core.formatting import render_template
 
 
 class PackageRelease:
@@ -92,7 +92,7 @@ class PackageRelease:
                 checks = PackageChecks(self.project, self.documents, folder).run()
                 status = CheckReport(self.project, self.config, checks, vertical_scale).write(folder)
                 if status == Status.ERROR:
-                    raise ValueError("Проверки готовых документов не пройдены: " + str(checks))
+                    raise ValueError(CheckReport.failure_message(checks))
                 self.write_changes(folder)
                 self.publish(folder)
             return {"status": status, "folder": str(self.output_dir), "checks": checks,

@@ -12,7 +12,7 @@ from core.models import DocumentId
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.tables import RegisterTable, TextBlock
-from core.templates import render_template
+from core.formatting import render_template
 
 
 TEMPLATE_PATH = TEMPLATES_DIR / "general.svg"
