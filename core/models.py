@@ -122,19 +122,20 @@ class PointField(Enum):
 
 
 class PipeField(Enum):
-    """Поля трубы: аргументы правки, подписи и единицы."""
+    """Поля трубы: аргументы правки, подписи, единицы и JSON-типы."""
 
-    MATERIAL = ("material", "material", "Материал трубы", "")
-    OUTER_DIAMETER_MM = ("outer_diameter_mm", "outer_diameter_mm", "Наружный диаметр трубы", UNIT_MM)
-    WALL_MM = ("wall_mm", "wall_mm", "Толщина стенки трубы", UNIT_MM)
-    SDR = ("sdr", "sdr", "SDR", "")
-    STANDARD = ("standard", "standard", "Стандарт/ТУ на трубу", "")
+    MATERIAL = ("material", "material", "Материал трубы", "", "string")
+    OUTER_DIAMETER_MM = ("outer_diameter", "outer_diameter_mm", "Наружный диаметр трубы", UNIT_MM, "number")
+    WALL_MM = ("wall_thickness", "wall_mm", "Толщина стенки трубы", UNIT_MM, "number")
+    SDR = ("sdr", "sdr", "SDR", "", "number")
+    STANDARD = ("standard", "standard", "Стандарт/ТУ на трубу", "", "string")
 
-    def __init__(self, argument, attribute, label, unit):
-        """Сохраняет имя поля и оформление изменения."""
+    def __init__(self, argument, attribute, label, unit, json_type):
+        """Сохраняет имя поля, оформление изменения и JSON-тип."""
         self.argument = argument
         self.attribute = attribute
         self.label, self.unit = label, unit
+        self.json_type = json_type
 
 
 @dataclass

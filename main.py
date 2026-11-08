@@ -35,6 +35,7 @@ def main():
         ToolName.CALCULATE_MATERIAL_QUANTITIES: session.calculate_material_quantities,
         ToolName.CHANGE_PROFILE_FONT: session.change_profile_font,
         ToolName.UPDATE_POINT: session.update_point,
+        ToolName.UPDATE_PIPE: session.update_pipe,
         ToolName.RELEASE_DOCUMENTS: session.release,
     }
     load_dotenv(PROJECT_ROOT / "api_keys.env")

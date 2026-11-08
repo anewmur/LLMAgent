@@ -8,13 +8,19 @@ from core.session import RouteSession
 def test_tool_schemas():
     tools = {tool["function"]["name"]: tool["function"] for tool in TOOLS}
     assert set(tools) == {"calculate_route_length", "calculate_pipe_levels", "calculate_material_quantities",
-                          "change_profile_font", "update_point", "release_documents"}
+                          "change_profile_font", "update_point", "update_pipe", "release_documents"}
     for name in ["calculate_route_length", "calculate_pipe_levels", "calculate_material_quantities"]:
         assert tools[name]["parameters"]["properties"] == {}
     point = tools["update_point"]["parameters"]
     assert point["required"] == ["name"]
     assert set(point["properties"]) == {"name", "x", "y", "z"}
     assert "null" in point["properties"]["z"]["type"]
+    pipe = tools["update_pipe"]["parameters"]
+    assert set(pipe["properties"]) == {"material", "sdr", "outer_diameter", "wall_thickness"}
+    assert pipe["required"] == [] and pipe["minProperties"] == 1
+    assert pipe["additionalProperties"] is False
+    assert pipe["properties"]["material"]["type"] == "string"
+    assert all(pipe["properties"][name]["type"] == "number" for name in ["sdr", "outer_diameter", "wall_thickness"])
 
 
 def test_levels_do_not_run_geometry(input_file, tmp_path, monkeypatch, config):

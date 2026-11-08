@@ -92,7 +92,7 @@ class RouteSession:
         fields = {field.argument: field for field in field_enum}
         if not values or not set(values).issubset(fields):
             return None
-        # У точки z соответствует axis; у трубы аргумент уже совпадает с полем модели.
+        # Enum сопоставляет имена аргументов инструмента с полями модели.
         return {fields[name].attribute: value for name, value in values.items()}
 
     def publish_update(self, data, make_changes):

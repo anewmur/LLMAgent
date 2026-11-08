@@ -1,7 +1,7 @@
 from enum import Enum
 
 from core.drawing_settings import FONT_SIZES
-from core.models import PointField
+from core.models import PipeField, PointField
 
 
 class ToolName(str, Enum):
@@ -12,16 +12,19 @@ class ToolName(str, Enum):
     CALCULATE_MATERIAL_QUANTITIES = "calculate_material_quantities"
     CHANGE_PROFILE_FONT = "change_profile_font"
     UPDATE_POINT = "update_point"
+    UPDATE_PIPE = "update_pipe"
     RELEASE_DOCUMENTS = "release_documents"
 
 
-def tool(name, description, properties=None, required=()):
+def tool(name, description, properties=None, required=(), min_properties=None):
     """Возвращает описание инструмента с общей схемой аргументов."""
     parameters = {
         "type": "object",
         "properties": {} if properties is None else properties,
         "required": list(required),
     }
+    if min_properties is not None:
+        parameters["minProperties"] = min_properties
     # У явно заданных свойств запрещаем остальные ключи.
     if properties is not None:
         parameters["additionalProperties"] = False
@@ -84,6 +87,25 @@ TOOLS = [
             **{field.argument: {"type": ["number", "null"]} for field in PointField},
         },
         required=("name",),
+    ),
+    tool(
+        ToolName.UPDATE_PIPE,
+        (
+            "Изменить материал или размеры трубы текущей трассы и перевыпустить комплект. "
+            "Укажите хотя бы один параметр; "
+            "неуказанные поля остаются прежними. Материал одновременно обновляется в "
+            "описании объекта. При ошибке проект и документы не меняются; уточни данные "
+            "у пользователя. После успеха покажи перечень изменений. При warning изменение "
+            "принято и комплект опубликован; сообщи предупреждения."
+        ),
+        properties={
+            field.argument: {
+                "type": field.json_type,
+                "description": f"{field.label}, {field.unit}" if field.unit else field.label,
+            }
+            for field in PipeField if field != PipeField.STANDARD
+        },
+        min_properties=1,
     ),
     tool(
         ToolName.RELEASE_DOCUMENTS,

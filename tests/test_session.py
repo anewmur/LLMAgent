@@ -185,9 +185,9 @@ def test_pipe_noop_and_errors_keep_project_history_and_files(input_file, tmp_pat
     assert session.update_pipe(material="ПЭ 100") == {"status": "ok", "message": "Значения не изменились."}
     validation.assert_not_called()
     assert session.update_pipe(unknown="значение")["status"] == "error"
-    assert session.update_pipe(outer_diameter_mm=0)["status"] == "error"
+    assert session.update_pipe(outer_diameter=0)["status"] == "error"
     export.assert_not_called()
-    assert session.update_pipe(outer_diameter_mm=160, wall_mm=9.5, standard="ТУ TEST") == export.return_value
+    assert session.update_pipe(outer_diameter=160, wall_thickness=9.5, standard="ТУ TEST") == export.return_value
     export.assert_called_once()
     assert session.project.model_dump() == before_project
     assert not session.changes

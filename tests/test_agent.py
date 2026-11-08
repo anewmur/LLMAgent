@@ -9,6 +9,7 @@ from agent.runtime import RouteAgent
 from agent.settings import BASE_URL, MAX_TOOL_ROUNDS, MODEL
 from agent.tools import ToolName
 from core.session import RouteSession
+from main import SYSTEM_PROMPT_PATH
 
 
 def response(content=None, tool_name=None, arguments="{}", call_id="call_1"):
@@ -34,8 +35,8 @@ def test_questions_preserve_history_and_log_tools():
     assert messages[0] == {"role": "system", "content": "Помощник"}
     assert all(call.kwargs["model"] == "test-model" for call in client.chat.completions.create.call_args_list)
     assert handler.call_count == len(log) == 2
-    assert [m["content"] for m in messages if m["role"] == "user"] == ["Длина?", "А уклон?"]
-    assert [m["tool_call_id"] for m in messages if m["role"] == "tool"] == ["call_1", "call_2"]
+    assert [message["content"] for message in messages if message["role"] == "user"] == ["Длина?", "А уклон?"]
+    assert [message["tool_call_id"] for message in messages if message["role"] == "tool"] == ["call_1", "call_2"]
     assert log[0]["result"]["length_m"] == 360
 
 
@@ -143,3 +144,78 @@ def test_levels_tool_is_called_without_arguments():
     client.chat.completions.create.side_effect = [response(tool_name="calculate_pipe_levels"), response(content="Ответ")]
     RouteAgent(client, {"calculate_pipe_levels": handler}, "Помощник").ask("Глубина в P3?")
     handler.assert_called_once_with()
+
+
+def test_missing_axis_is_clarified_before_documents_are_released(route_data, write_route, tmp_path, config):
+    del route_data["points"][3]["axis"]
+    input_file = write_route(route_data)
+    original = input_file.read_bytes()
+    folder = tmp_path / "output"
+    session = RouteSession(input_file, folder, config)
+    before = session.project.model_dump()
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        response(tool_name=ToolName.RELEASE_DOCUMENTS.value),
+        response(content="В точке P3 нет отметки оси трубы. Укажите отметку."),
+        response(tool_name=ToolName.UPDATE_POINT.value, arguments='{"name":"P3","z":100.6}', call_id="call_2"),
+        response(content="Отметка оси P3: не задана → 100,60 м. Комплект выпущен."),
+    ]
+    handlers = {ToolName.RELEASE_DOCUMENTS: session.release, ToolName.UPDATE_POINT: session.update_point}
+    agent = RouteAgent(client, handlers, SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log)
+
+    assert "нет отметки" in agent.ask("Выпусти комплект документов")
+    first = session.tool_log[0]["result"]
+    assert first["status"] == "error"
+    assert any(problem["where"] == "P3" and "axis" in problem["message"] for problem in first["problems"])
+    assert session.project.model_dump() == before and not session.changes
+    assert not folder.exists()
+
+    assert "Комплект выпущен" in agent.ask("У P3 отметка оси 100,6 м")
+    updated = session.tool_log[1]["result"]
+    assert updated["status"] == "ok"
+    assert updated["changes"]["values"] == [
+        {"name": "P3, отметка оси трубы", "before": None, "after": 100.6, "unit": "м"},
+    ]
+    assert session.project.points[3].axis == 100.6 and not session.problems
+    assert (folder / "pdf/package.pdf").is_file() and (folder / "changes.md").is_file()
+    assert [entry["tool"] for entry in session.tool_log] == ["release_documents", "update_point"]
+    assert [message["content"] for message in agent.messages if message["role"] == "user"] == [
+        "Выпусти комплект документов", "У P3 отметка оси 100,6 м",
+    ]
+    assert input_file.read_bytes() == original
+
+
+def test_pipe_tool_updates_session_and_returns_changes(input_file, tmp_path, config):
+    original = input_file.read_bytes()
+    folder = tmp_path / "output"
+    session = RouteSession(input_file, folder, config)
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        response(tool_name=ToolName.UPDATE_PIPE.value, arguments=json.dumps({
+            "material": "ПЭ 80", "sdr": 11, "outer_diameter": 160, "wall_thickness": 14.6,
+        }, ensure_ascii=False)),
+        response(content="Изменения: ПЭ 100 → ПЭ 80; SDR 17 → 11; диаметр 110 → 160 мм; стенка 6,6 → 14,6 мм."),
+    ]
+    agent = RouteAgent(client, {ToolName.UPDATE_PIPE: session.update_pipe},
+                       SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log)
+
+    text = agent.ask("Замени трубу на ПЭ 80 SDR 11, наружный диаметр 160 мм, стенка 14,6 мм")
+
+    result = json.loads(next(message["content"] for message in agent.messages if message["role"] == "tool"))
+    assert result["status"] == "ok", result
+    assert result["changes"]["values"] == [
+        {"name": "Материал трубы", "before": "ПЭ 100", "after": "ПЭ 80", "unit": ""},
+        {"name": "Наружный диаметр трубы", "before": 110, "after": 160, "unit": "мм"},
+        {"name": "Толщина стенки трубы", "before": 6.6, "after": 14.6, "unit": "мм"},
+        {"name": "SDR", "before": 17, "after": 11, "unit": ""},
+        {"name": "Материал трубы в описании объекта", "before": "ПЭ 100", "after": "ПЭ 80", "unit": ""},
+    ]
+    assert result["changes"]["sheets"] == ["Общие данные", "План", "Профиль", "Спецификация"]
+    assert session.project.pipe.material == session.project.object.pipe_material == "ПЭ 80"
+    assert session.project.pipe.outer_diameter_mm == 160 and session.project.pipe.wall_mm == 14.6
+    assert session.project.pipe.sdr == 11
+    assert session.tool_log[0]["tool"] == "update_pipe" and session.tool_log[0]["result"] == result
+    assert text.startswith("Изменения:") and "ПЭ 100 → ПЭ 80" in text
+    assert (folder / "pdf/package.pdf").is_file()
+    assert "Материал трубы: **ПЭ 100 → ПЭ 80**." in (folder / "changes.md").read_text(encoding="utf-8")
+    assert input_file.read_bytes() == original
