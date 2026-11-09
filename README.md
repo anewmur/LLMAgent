@@ -2,7 +2,41 @@
 
 ## Установка и запуск
 
-Нужен Python **3.10 или новее**. Команды для Windows PowerShell:
+Нужен Python **3.10 или новее**. Есть два способа установки.
+
+### Способ 1. Готовый wheel в отдельную папку
+
+Wheel `llmagent-0.1.0-py3-none-any.whl` содержит 
+программу: код, шаблоны, шрифт,
+`config/requirements.yaml` и системный промпт. 
+Исходные данные и ключ в него не входят. Структура рабочей папки:
+
+```text
+C:\llmtest\
+├── venv\              окружение с установленным wheel
+├── input\
+│   └── input.json     трасса (обязательно; файл input/input.json из репозитория)
+├── api_keys.env       LLM_API_KEY="ваш_ключ" (или переменная окружения)
+└── output\            создаётся при запуске: комплект, check_report.md, tool_log.md
+```
+
+Установка и запуск (`<папка с wheel>` — где лежат присланные wheel и `input.json`):
+
+```powershell
+mkdir C:\llmtest\input
+cd C:\llmtest
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install "<папка с wheel>\llmagent-0.1.0-py3-none-any.whl"
+copy "<папка с wheel>\input.json" input\
+$env:LLM_API_KEY="ваш_ключ"
+llmagent
+```
+
+Файл `input.json` передаётся вместе с wheel. 
+Он же лежит в репозитории в `input\input.json`.
+
+### Способ 2. Из репозитория GitHub
 
 ```powershell
 git clone https://github.com/anewmur/LLMAgent.git
@@ -10,60 +44,29 @@ cd LLMAgent
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
-```
-
-Зависимости заданы только в `pyproject.toml`; группа `dev` добавляет pytest.
-Шаблоны, шрифт, `config/requirements.yaml` и системный промпт входят в пакет и берутся рядом
-с установленным кодом (`config/paths.py`: `PACKAGE_ROOT`).
-
-Входные данные, ключ и результаты ищутся в папке запуска (`config/paths.py`: `PROJECT_ROOT = Path.cwd()`).
-Поэтому `llmagent` и `python main.py` запускайте из папки, где лежат `input/` и `api_keys.env`;
-комплект появится в `output/` этой же папки.
-
-### Установка из wheel в отдельную папку
-
-Сборка в папке репозитория:
-
-```powershell
-pip install build
-python -m build --wheel
-```
-
-Wheel содержит только программу: код, шаблоны, шрифт, `config/requirements.yaml` и системный промпт.
-Исходные данные, ключ и `api_keys.env.example` в него не входят — их кладут в рабочую папку.
-Структура рабочей папки:
-
-```text
-C:\llmtest\
-├── venv\              окружение с установленным wheel
-├── input\
-│   └── input.json     трасса (обязательно; можно взять из репозитория)
-├── api_keys.env       LLM_API_KEY="ваш_ключ" (или переменная окружения)
-└── output\            создаётся при запуске: комплект, check_report.md, tool_log.md
-```
-
-Установка и запуск:
-
-```powershell
-mkdir C:\llmtest\input
-cd C:\llmtest
-py -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install <путь к репозиторию>\dist\llmagent-0.1.0-py3-none-any.whl
-copy <путь к репозиторию>\input\input.json input\
-$env:LLM_API_KEY="ваш_ключ"
-llmagent
-```
-
-Чтобы переустановить новую сборку той же версии: `pip install --force-reinstall --no-deps <путь>\dist\llmagent-0.1.0-py3-none-any.whl`.
-
-Скопируйте пример настроек и впишите свой ключ в `api_keys.env`:
-
-```powershell
 copy api_keys.env.example api_keys.env
 ```
 
-Либо задайте ключ переменной окружения в текущем окне PowerShell:
+
+### Ключ и модель (для обоих способов)
+
+Шаблоны, шрифт, `config/requirements.yaml` и системный промпт берутся рядом
+с установленным кодом (`config/paths.py`: `PACKAGE_ROOT`).
+
+Входные данные, ключ и результаты ищутся в папке запуска (`config/paths.py`: `PROJECT_ROOT = Path.cwd()`).
+Поэтому `llmagent` и `python main.py` запускайте из папки, 
+где лежат `input/` и `api_keys.env`.
+
+Выходной комплект появится в `output/` этой же папки.
+
+Ключ задаётся строкой `LLM_API_KEY="ваш_ключ"` в файле `api_keys.env` в папке запуска
+```powershell
+LLM_API_KEY=ваш_ключ # Обязательный ключ; скопируйте в api_keys.env или задайте в окружении.
+LLM_BASE_URL=https://api.deepseek.com # Необязательно; по умолчанию API DeepSeek.
+LLM_MODEL=deepseek-flash # Необязательно; по умолчанию deepseek-flash.
+```
+
+либо переменной окружения в текущем окне PowerShell:
 
 ```powershell
 $env:LLM_API_KEY="ваш_ключ"
@@ -77,22 +80,17 @@ $env:LLM_API_KEY="ваш_ключ"
 | `LLM_BASE_URL` | нет | `https://api.deepseek.com` |
 | `LLM_MODEL` | нет | `deepseek-flash` |
 
-Переменные окружения имеют приоритет над `api_keys.env`. При старте программа печатает модель и адрес API;
-та же строка записывается в шапку `tool_log.md`. Отключение режима рассуждений (`extra_body`) передаётся
-только для адреса DeepSeek по умолчанию. Использованная при разработке и в комплекте модель — `deepseek-flash`.
-
-Запуск и тесты:
-
-```powershell
-llmagent
-# Альтернативный запуск: python main.py
-pytest
-```
+Переменные окружения имеют приоритет над `api_keys.env`. 
+При старте программа печатает модель и адрес API.
+Та же строка записывается в шапку `tool_log.md`. 
+Отключение режима рассуждений (`extra_body`) передаётся
+только для адреса DeepSeek по умолчанию. 
+Использованная при разработке и в комплекте модель — `deepseek-flash`.
 
 Другую трассу можно передать аргументом: `llmagent input/examples/alternate.json`.
 Если файла нет, программа пишет «Файл не найден: …» и завершается с кодом 1.
 Без ключа программа выводит подсказку и завершается с кодом 1.
-Выпуски создаются в `output/`. Папка не исключена из Git: по ТЗ сформированный комплект сдаётся вместе с репозиторием.
+Выпуски создаются в `output/`. 
 
 Примеры входных данных в `input/examples/`:
 - `alternate.json` — другая трасса, 250 м;
@@ -101,7 +99,7 @@ pytest
 - `gost_b1.json` — профиль по рисунку В.1 ГОСТ 21.704;
 - `thick.json`, `thick_plan.json`, `thick_short.json` — крупные диаметры, труба двумя линиями.
 
-Таблица «требование → пункт стандарта → где реализовано → способ проверки» и учтённые редакции стандартов —
+Таблица «требование - пункт стандарта - где реализовано - способ проверки» и учтённые редакции стандартов —
 `docs/requirements_table.md`. Архитектура и роль LLM — `docs/architecture.md`.
 
 ## Диалог и состояние трассы
@@ -148,6 +146,10 @@ pytest
 Тариф выбирается по времени ответа API: пик UTC 01:00–04:00 и 06:00–10:00 по будням; китайские праздники не учитываются.
 Стоимость накапливается для каждого ответа; итоги вопросов находятся в отдельном `usage_log`.
 Числа выводятся с десятичной запятой, стоимость — с шестью знаками. Расчёт без модели токены API не расходует.
+
+Примерное время и стоимость одного выпуска (финальный прогон 10.11.2026, `deepseek-flash`, тариф вне пика):
+выпуск комплекта — 3,84 с и $0,000371, правка P5 с перевыпуском — 3,56 с и $0,000185.
+Один выпуск — около 4 с и менее $0,001. Подробности — в `docs/architecture.md`, раздел «Время и стоимость».
 
 Пример `input/examples/alternate.json`: 50 + 70 + 50 + 80 = 250 м, один отвод 90°.
 
