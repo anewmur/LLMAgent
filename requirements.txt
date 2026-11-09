@@ -1,7 +1,0 @@
-openai
-pydantic>=2
-python-dotenv
-reportlab
-svglib>=2.4,<3
-pypdf
-PyYAML>=6

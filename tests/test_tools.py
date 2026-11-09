@@ -8,13 +8,23 @@ from core.session import RouteSession
 def test_tool_schemas():
     tools = {tool["function"]["name"]: tool["function"] for tool in TOOLS}
     assert set(tools) == {"calculate_route_length", "calculate_pipe_levels", "calculate_material_quantities",
-                          "change_profile_font", "update_point", "update_pipe", "load_route", "release_documents"}
+                          "change_profile_font", "update_point", "update_pipe", "add_point", "remove_point", "add_bend", "remove_bend", "load_route", "release_documents"}
     for name in ["calculate_route_length", "calculate_pipe_levels", "calculate_material_quantities"]:
         assert tools[name]["parameters"]["properties"] == {}
     point = tools["update_point"]["parameters"]
     assert point["required"] == ["name"]
-    assert set(point["properties"]) == {"name", "x", "y", "axis"}
+    assert set(point["properties"]) == {"name", "x", "y", "axis", "ground", "bend_at", "bend_angle"}
     assert "null" in point["properties"]["axis"]["type"]
+    assert point["properties"]["ground"]["type"] == ["number", "null"]
+    assert point["properties"]["bend_at"]["type"] == "string"
+    assert point["properties"]["bend_angle"]["type"] == "number"
+    added = tools["add_point"]["parameters"]
+    assert set(added["required"]) == {"name", "after", "x", "y", "ground", "axis"}
+    assert set(added["properties"]) == set(added["required"]) | {"bend_angle"}
+    assert all(added["properties"][name]["type"] == "number" for name in ["x", "y", "ground", "axis", "bend_angle"])
+    assert tools["remove_point"]["parameters"]["required"] == ["name"]
+    assert tools["add_bend"]["parameters"]["required"] == ["at", "angle_deg"]
+    assert tools["remove_bend"]["parameters"]["required"] == ["at"]
     pipe = tools["update_pipe"]["parameters"]
     assert set(pipe["properties"]) == {"material", "sdr", "outer_diameter", "wall_thickness"}
     assert pipe["required"] == [] and pipe["minProperties"] == 1

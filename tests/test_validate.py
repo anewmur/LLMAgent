@@ -65,10 +65,11 @@ def test_coincident_neighboring_points(route_data):
 
 def test_route_can_return_to_non_neighboring_point(route_data):
     changed = copy.deepcopy(route_data)
+    changed["points"] = changed["points"][:3]
     start = find_point(changed, "P0")
     end = find_point(changed, "P2")
     end["x"], end["y"] = start["x"], start["y"]
-    changed["bends"] = []  # \u043f\u0440\u043e\u0432\u0435\u0440\u044f\u0435\u043c \u0442\u043e\u043b\u044c\u043a\u043e \u0442\u043e\u0447\u043a\u0438; \u043e\u0442\u0432\u043e\u0434\u044b \u043a \u043d\u043e\u0432\u043e\u0439 \u0433\u0435\u043e\u043c\u0435\u0442\u0440\u0438\u0438 \u043d\u0435 \u043e\u0442\u043d\u043e\u0441\u044f\u0442\u0441\u044f
+    changed["bends"] = [{"at": "P1", "angle_deg": 180}]
 
     project, problems = validate_input(changed)
 
@@ -118,3 +119,19 @@ def test_pipe_dimensions_match_sdr_with_tolerance(route_data, diameter, wall, sd
         assert any(problem.code == expected_code and problem.level == Level.ERROR for problem in problems)
         if expected_code == ProblemCode.PIPE_SDR_MISMATCH:
             assert all(problem.where == "pipe" and problem.blocks_quantities for problem in problems)
+
+
+def test_unbent_turn_uses_actual_angle_and_decimal_comma(route_data):
+    from core.formatting import format_number
+    from core.validate import InputValidator
+
+    project, problems = validate_input(route_data)
+    assert project is not None and not any(problem.code == ProblemCode.MISSING_BEND for problem in problems)
+    route_data["points"][-1]["y"] = 120
+    validator = InputValidator(route_data)
+    project, problems = validator.validate()
+    missing = [problem for problem in problems if problem.code == ProblemCode.MISSING_BEND]
+    assert len(missing) == 1 and missing[0].where == "P4"
+    assert missing[0].level == Level.ERROR and missing[0].blocks_quantities
+    assert format_number(validator.turn_angle(4)) == "26,57"
+    assert missing[0].message == "поворот трассы 26,57 без отвода"

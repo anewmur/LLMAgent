@@ -26,3 +26,16 @@ LOAD_ROUTE_DATA_ERROR = (
 
 # Ответ при отклонении новых данных точки или трубы; поясняет, что правка не была принята.
 UPDATE_REJECTED_MESSAGE = "Изменение не применено: новые данные не прошли проверку, текущая трасса не изменилась."
+
+# Минимальное число точек трассы; для участка нужны начало и конец.
+MIN_POINTS = 2
+# Сообщения проверки и операций с точками и отводами.
+MISSING_BEND_MESSAGE = "поворот трассы {angle} без отвода"
+BEND_NOT_FOUND = "Отвод в этой точке не найден."
+BEND_ANGLE_REQUIRED = "Для точки отвода bend_at укажите угол bend_angle."
+TITLE_ADD_POINT = "Добавление точки {name}"
+TITLE_REMOVE_POINT = "Удаление точки {name}"
+TITLE_ADD_BEND = "Добавление отвода в {name}"
+TITLE_REMOVE_BEND = "Удаление отвода в {name}"
+LABEL_POINT_VALUE = "{name}, {label}"
+LABEL_BEND_ANGLE = "Угол отвода в {name}"

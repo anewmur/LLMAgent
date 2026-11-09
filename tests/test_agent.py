@@ -300,3 +300,26 @@ def test_multiple_sources_warn_only_about_the_uncalled_tool(both_called, capsys)
     assert warnings == expected
     printed = capsys.readouterr().out.splitlines()
     assert [line for line in printed if "предупреждение:" in line] == expected
+
+
+def test_agent_clarifies_bend_and_repeats_rejected_point_addition(route_data, write_route, tmp_path, config):
+    route_data["points"] = [route_data["points"][0], route_data["points"][2]]
+    route_data["bends"] = []
+    session = RouteSession(write_route(route_data), tmp_path / "output", config)
+    arguments = {"name": "P1a", "after": "P0", "x": 60, "y": 60, "ground": 102.6, "axis": 100.2}
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        response(tool_name=ToolName.ADD_POINT.value, arguments=json.dumps(arguments)),
+        response(content="Точка не добавлена: нужен отвод 90°. Установить его?"),
+        response(tool_name=ToolName.ADD_POINT.value, arguments=json.dumps({**arguments, "bend_angle": 90}), call_id="call_2"),
+        response(content="Добавлена точка P1a и отвод 90°."),
+    ]
+    agent = RouteAgent(client, {ToolName.ADD_POINT: session.add_point},
+                       SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log)
+    assert agent.ask("Добавь P1a после P0: x=60, y=60, земля 102,6, ось трубы 100,2").endswith("?")
+    assert all(point.id != "P1a" for point in session.project.points)
+    assert session.tool_log[0]["result"]["status"] == "error"
+    assert "Добавлена" in agent.ask("Да, установи отвод с предложенным углом")
+    assert [point.id for point in session.project.points] == ["P0", "P1a", "P2"]
+    assert [(bend.at, bend.angle_deg) for bend in session.project.bends] == [("P1a", 90)]
+    assert session.tool_log[1]["result"]["status"] in ("ok", "warning")

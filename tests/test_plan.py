@@ -33,6 +33,8 @@ def test_plan_geometry_scale_direction_and_fit(route_data, config):
         line = geometry.find("s:polyline", ns)
         coordinates = [tuple(map(float, pair.split(","))) for pair in line.get("points").split()]
         assert coordinates == expected
+        markers = geometry.findall("s:circle[@data-kind='point-marker']", ns)
+        assert [(float(marker.get("cx")), float(marker.get("cy"))) for marker in markers] == coordinates
         x_values = [sheet_x for sheet_x, sheet_y in coordinates]
         y_values = [sheet_y for sheet_x, sheet_y in coordinates]
         assert (min(x_values) + max(x_values)) / 2 == (30 + 405) / 2
@@ -67,11 +69,11 @@ def test_plan_labels_follow_calculated_lengths_and_stations(route_data, config):
         assert not problems
         root = ET.fromstring(PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).render())
         labels = root.find("s:g[@id='route-labels']", ns)
-        names = labels.findall("s:text[@data-kind='point-name']", ns)
+        names = labels.findall(".//s:text[@data-kind='point-name']", ns)
         assert [(element.get("data-point-id"), element.text) for element in names] == [
             (f"P{index}", {2: "P2 / УП1", 3: "P3 / УП2"}.get(index, f"P{index}")) for index in range(6)
         ]
-        stations = labels.findall("s:text[@data-kind='station']", ns)
+        stations = labels.findall(".//s:text[@data-kind='station']", ns)
         assert [element.text for element in stations] == [
             "\u041f\u041a 0+00,00", "\u041f\u041a 0+60,00", "\u041f\u041a 1+20,00",
             "\u041f\u041a 2+00,00", "\u041f\u041a 2+80,00", last_station,
@@ -88,10 +90,14 @@ def test_plan_labels_follow_calculated_lengths_and_stations(route_data, config):
         if p5_x == 300:
             pipe_label = labels.find(".//s:text[@data-kind='pipe-label']", ns)
             assert coordinates[-1][1] + float(pipe_label.get("y")) > float(lengths[-1].get("y")) + 5
-        for (sheet_x, sheet_y), name, station in zip(coordinates, names, stations):
-            assert float(name.get("y")) < float(station.get("y")) < sheet_y
+        coordinate_labels = labels.findall(".//s:text[@data-kind='coordinates']", ns)
+        for (sheet_x, sheet_y), name, station, coordinate in zip(coordinates, names, stations, coordinate_labels):
+            assert float(name.get("y")) < float(station.get("y")) < float(coordinate.get("y")) < sheet_y
+            assert name.get("x") == station.get("x") == coordinate.get("x")
+            assert name.get("text-anchor") == station.get("text-anchor") == coordinate.get("text-anchor")
         assert float(lengths[0].get("y")) > coordinates[0][1]
-        assert float(lengths[2].get("x")) > coordinates[2][0]
+        assert float(lengths[2].get("x")) - coordinates[2][0] == settings.PLAN_LENGTH_OFFSET_MM
+        assert lengths[2].get("text-anchor") == "start"
 
 
 def test_plan_symbols_and_legend_use_input(route_data, config):
@@ -105,7 +111,12 @@ def test_plan_symbols_and_legend_use_input(route_data, config):
     line = root.find("s:g[@id='route-geometry']/s:polyline", ns)
     assert line.get("stroke-width") == "0.7"
     assert line.get("stroke-dasharray") == "6 2"
-    assert not root.findall(".//s:circle", ns)
+    markers = root.findall(".//s:circle[@data-kind='point-marker']", ns)
+    assert len(markers) == len(project.points)
+    assert [marker.get("data-point-id") for marker in markers] == [point.id for point in project.points]
+    assert all(marker.get("fill") == "white" for marker in markers)
+    assert all(float(marker.get("r")) * 2 == settings.POINT_MARKER_DIAMETER_MM for marker in markers)
+    assert all(float(marker.get("stroke-width")) == settings.POINT_MARKER_LINE_WIDTH_MM for marker in markers)
     label = root.find(".//s:text[@data-kind='pipe-label']", ns)
     assert "".join(label.itertext()) == "В1 — ПЭ 100 & тест SDR 17 ⌀160×9,5"
     names = root.findall(".//s:text[@data-kind='point-name']", ns)
@@ -167,3 +178,43 @@ def test_vertical_pipe_leader_uses_drawing_field_center(route_data, config):
             assert float(label.get("x")) > sheet_x
         else:
             assert float(label.get("x")) < sheet_x
+
+
+def test_point_label_blocks_stay_in_field_with_leaders(route_data, config):
+    route_data["points"] = route_data["points"][:2]
+    route_data["points"][1].update(x=375, y=192)
+    route_data["bends"] = []
+    project, problems = validate_input(route_data)
+    assert not problems
+    drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
+    root = ET.fromstring(drawing.render())
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    blocks = root.findall(".//s:g[@data-kind='point-label']", ns)
+    assert len(blocks) == 2
+    for block in blocks:
+        leader = block.find("s:path[@data-kind='point-leader']", ns)
+        assert leader is not None and leader.get("data-point-id") == block.get("data-point-id")
+        labels = block.findall("s:text", ns)
+        assert len(labels) == 3 and len({label.get("text-anchor") for label in labels}) == 1
+        assert len({label.get("x") for label in labels}) == 1
+        for label in labels:
+            font_size = float(label.get("font-size", settings.PLAN_FONT_SIZE_MM))
+            width = len(label.text) * settings.TEXT_CHARACTER_WIDTH_FACTOR * font_size
+            left = float(label.get("x")) - (width if label.get("text-anchor") == "end" else 0)
+            assert settings.PLAN_FIELD_LEFT_MM <= left <= left + width <= 405
+            assert settings.PLAN_FIELD_TOP_MM <= float(label.get("y")) - font_size
+            assert float(label.get("y")) <= settings.PLAN_FIELD_TOP_MM + settings.PLAN_FIELD_HEIGHT_MM
+
+
+@pytest.mark.parametrize("end_y, anchor", [(80, "start"), (-80, "end")])
+def test_vertical_length_label_has_side_clearance(route_data, config, end_y, anchor):
+    route_data["points"] = route_data["points"][:2]
+    route_data["points"][1].update(x=0, y=end_y)
+    route_data["bends"] = []
+    project, problems = validate_input(route_data)
+    assert not problems
+    drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
+    root = ET.fromstring(drawing.render())
+    label = root.find(".//{http://www.w3.org/2000/svg}text[@data-kind='length']")
+    assert label.get("text-anchor") == anchor
+    assert abs(float(label.get("x")) - drawing.coordinates[0][0]) == settings.PLAN_LENGTH_OFFSET_MM

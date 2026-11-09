@@ -1,0 +1,3 @@
+<path data-kind="point-leader" data-point-id=${point_id}
+      d="M ${start_x},${start_y} L ${end_x},${end_y}"
+      fill="none" stroke="black" stroke-width="${line_width}"/>

@@ -14,20 +14,25 @@ from core.paths import PROJECT_ROOT, TEMPLATES_DIR
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import (
     Change, ChangeSet, DocumentId, Level, PipeField, PointField,
-    PIPE_WHERE, Problem, ProblemCode, Status, UNIT_M, UNIT_MM,
+    PIPE_WHERE, Problem, ProblemCode, Status, UNIT_DEGREE, UNIT_M, UNIT_MM,
 )
 from core.profile_style import ProfileStyle
 from core.release import create_package
 from core.settings import (
     INPUT_DIR, LOAD_ROUTE_DATA_ERROR, LOAD_ROUTE_ERROR, LOAD_ROUTE_PATH_ERROR, LOG_WARNING_LABEL, TOOL_LOG_FILENAME,
-    UPDATE_REJECTED_MESSAGE,
+    UPDATE_REJECTED_MESSAGE, BEND_NOT_FOUND, BEND_ANGLE_REQUIRED,
+    TITLE_ADD_POINT, TITLE_REMOVE_POINT, TITLE_ADD_BEND, TITLE_REMOVE_BEND,
+    LABEL_POINT_VALUE, LABEL_BEND_ANGLE,
 )
 from core.validate import validate_input
 
 
 VALUES_UNCHANGED = "Значения не изменились."
 POINT_NOT_FOUND = "Точка не найдена."
-FIELDS_REQUIRED = "Укажите изменяемые координаты x, y или отметку оси трубы axis."
+FIELDS_REQUIRED = (
+    "Укажите изменяемые координаты x, y, отметку земли ground, "
+    "отметку оси трубы axis или угол отвода bend_angle."
+)
 PIPE_FIELDS_REQUIRED = "Укажите изменяемые поля трубы: {fields}."
 LABEL_ROUTE_LENGTH = "Общая длина трассы"
 LABEL_PROFILE_FONT = "Базовый шрифт профиля"
@@ -72,7 +77,9 @@ class RouteSession:
 
     def error_response(self, code, message, where):
         """Возвращает ответ с одной ошибкой аргументов инструмента."""
-        return self.problem_response(Status.ERROR, [Problem(Level.ERROR, code, message, where)])
+        return self.problem_response(
+            Status.ERROR, [Problem(Level.ERROR, code, message, where)], message=UPDATE_REJECTED_MESSAGE,
+        )
 
     # Обёртки подставляют текущий проект в расчётные инструменты LLM.
     def calculate_route_length(self):
@@ -128,16 +135,20 @@ class RouteSession:
         return project is None or any(problem.level == Level.ERROR for problem in problems)
 
     @staticmethod
-    def parse_fields(values, field_enum):
+    def parse_fields(values, field_enum, allow_empty=False):
         """Проверяет аргументы и возвращает поля модели либо None при неверных именах."""
         fields = {field.argument: field for field in field_enum}
-        if not values or not set(values).issubset(fields):
+        if not values and not allow_empty:
+            return None
+        if not set(values).issubset(fields):
             return None
         # Enum сопоставляет имена аргументов инструмента с полями модели.
         return {fields[name].attribute: value for name, value in values.items()}
 
     def publish_update(self, data, make_changes):
         """Проверяет новые данные и выпускает комплект; при ошибке проект не меняется."""
+        if data == self.project.model_dump():
+            return {"status": Status.OK, "message": VALUES_UNCHANGED}
         project, problems = validate_input(data)
         if self.has_errors(project, problems):
             return self.problem_response(Status.ERROR, problems, message=UPDATE_REJECTED_MESSAGE)
@@ -166,29 +177,81 @@ class RouteSession:
                                     if check.status == Status.WARNING]
         return response
 
-    def update_point(self, name, **values):
+    def update_point(self, name, bend_angle=None, bend_at=None, **values):
         """Готовит правку точки и передаёт её в общую транзакцию выпуска."""
-        updates = self.parse_fields(values, PointField)
+        updates = self.parse_fields(values, PointField, allow_empty=bend_angle is not None)
         if updates is None:
             return self.error_response(ProblemCode.FIELDS_REQUIRED, FIELDS_REQUIRED, name)
-        point = next((point for point in self.project.points if point.id == name), None)
-        if point is not None and all(getattr(point, field) == value for field, value in updates.items()):
-            return {"status": Status.OK, "message": VALUES_UNCHANGED}
-        data = self.project.with_point(name, **updates)
+        if bend_at and bend_angle is None:
+            return self.error_response(ProblemCode.FIELDS_REQUIRED, BEND_ANGLE_REQUIRED, name)
+        data = self.project.with_point(name, bend_angle=bend_angle, bend_at=bend_at, **updates)
         if data is None:
             return self.error_response(ProblemCode.POINT_NOT_FOUND, POINT_NOT_FOUND, name)
-        return self.publish_update(data, lambda project: self.point_changes(point, project))
+        return self.publish_update(data, lambda project: self.point_changes(name, project, bend_at=bend_at))
 
-    def point_changes(self, old_point, project) -> ChangeSet:
-        new_point = next(point for point in project.points if point.id == old_point.id)
-        values = []
-        for field in PointField:
-            self.add_value(values, f"{old_point.id}, {field.label}",
-                           getattr(old_point, field.attribute), getattr(new_point, field.attribute), field.unit)
+    def route_changes(self, title, values, project) -> ChangeSet:
+        """Добавляет изменение длины и собирает перечень для всех листов."""
         before = calculate_route_geometry(self.project.points)["length_m"]
         after = calculate_route_geometry(project.points)["length_m"]
         self.add_value(values, LABEL_ROUTE_LENGTH, before, after)
-        return ChangeSet(TITLE_POINT_CHANGE.format(name=old_point.id), values, self.all_sheets())
+        return ChangeSet(title, values, self.all_sheets())
+
+    def point_values(self, before, after):
+        """Возвращает изменения координат и отметок при правке, добавлении или удалении точки."""
+        name = before.id if before is not None else after.id
+        values = []
+        for field in PointField:
+            self.add_value(values, LABEL_POINT_VALUE.format(name=name, label=field.label),
+                           getattr(before, field.attribute) if before is not None else None,
+                           getattr(after, field.attribute) if after is not None else None, field.unit)
+        return values
+
+    def bend_values(self, at, project):
+        """Возвращает изменение угла отвода, включая его добавление или удаление."""
+        before = next((bend.angle_deg for bend in self.project.bends if bend.at == at), None)
+        after = next((bend.angle_deg for bend in project.bends if bend.at == at), None)
+        values = []
+        self.add_value(values, LABEL_BEND_ANGLE.format(name=at), before, after, UNIT_DEGREE)
+        return values
+
+    def point_changes(self, name, project, title=TITLE_POINT_CHANGE, bend_at=None) -> ChangeSet:
+        """Собирает изменения точки и связанного с операцией отвода."""
+        before = next((point for point in self.project.points if point.id == name), None)
+        after = next((point for point in project.points if point.id == name), None)
+        values = self.point_values(before, after)
+        values.extend(self.bend_values(name if bend_at is None else bend_at, project))
+        return self.route_changes(title.format(name=name), values, project)
+
+    def add_point(self, name, after, x, y, ground, axis, bend_angle=None):
+        """Проверяет и выпускает вставку точки с необязательным отводом в ней."""
+        point = {"id": name, "x": x, "y": y, "ground": ground, "axis": axis}
+        data = self.project.with_added_point(after, point, bend_angle)
+        if data is None:
+            return self.error_response(ProblemCode.POINT_NOT_FOUND, POINT_NOT_FOUND, after)
+        return self.publish_update(data, lambda project: self.point_changes(name, project, TITLE_ADD_POINT))
+
+    def remove_point(self, name):
+        """Проверяет и выпускает удаление точки вместе с её отводом."""
+        data = self.project.without_point(name)
+        if data is None:
+            return self.error_response(ProblemCode.POINT_NOT_FOUND, POINT_NOT_FOUND, name)
+        return self.publish_update(data, lambda project: self.point_changes(name, project, TITLE_REMOVE_POINT))
+
+    def add_bend(self, at, angle_deg):
+        """Проверяет и выпускает добавление отвода в существующей точке."""
+        data = self.project.with_bend(at, angle_deg)
+        if data is None:
+            return self.error_response(ProblemCode.POINT_NOT_FOUND, POINT_NOT_FOUND, at)
+        return self.publish_update(data, lambda project: self.route_changes(
+            TITLE_ADD_BEND.format(name=at), self.bend_values(at, project), project))
+
+    def remove_bend(self, at):
+        """Проверяет и выпускает удаление отвода."""
+        data = self.project.without_bend(at)
+        if data is None:
+            return self.error_response(ProblemCode.BEND_NOT_FOUND, BEND_NOT_FOUND, at)
+        return self.publish_update(data, lambda project: self.route_changes(
+            TITLE_REMOVE_BEND.format(name=at), self.bend_values(at, project), project))
 
     def update_pipe(self, **values):
         """Готовит правку трубы и передаёт её в общую транзакцию выпуска."""
@@ -209,7 +272,7 @@ class RouteSession:
                            getattr(project.pipe, field.attribute), field.unit)
         self.add_value(values, LABEL_OBJECT_PIPE_MATERIAL,
                        self.project.object.pipe_material, project.object.pipe_material, "")
-        return ChangeSet(TITLE_PIPE_CHANGE, values, self.all_sheets())
+        return self.route_changes(TITLE_PIPE_CHANGE, values, project)
 
     def change_profile_font(self, direction):
         size = ProfileStyle.font_step(self.font_size, direction)

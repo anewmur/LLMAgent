@@ -1,0 +1,10 @@
+<g data-kind="point-label" data-point-id=${point_id}>
+  ${leader}
+  <text data-kind="point-name" data-point-id=${point_id}
+        x="${label_x}" y="${name_y}" text-anchor="${anchor}">${title}</text>
+  <text data-kind="station" data-point-id=${point_id}
+        x="${label_x}" y="${station_y}" text-anchor="${anchor}">${station}</text>
+  <text data-kind="coordinates" data-point-id=${point_id}
+        x="${label_x}" y="${coordinates_y}" text-anchor="${anchor}"
+        font-size="${coordinate_size}">${coordinates}</text>
+</g>

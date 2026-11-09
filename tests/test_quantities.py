@@ -37,6 +37,7 @@ def test_bend_angle_not_matching_route_blocks_quantities(route_data, tmp_path, c
 
 
 def test_no_bends_gives_empty_quantity_list(route_data, tmp_path, config, write_route):
+    route_data["points"] = route_data["points"][:3]
     route_data["bends"] = []
 
     quantities = calculate(route_data, tmp_path, config, write_route)

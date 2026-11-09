@@ -47,3 +47,26 @@ def test_enums_keep_plain_strings_in_json_and_log():
     assert json.dumps(response) == '{"status": "warning", "checks": [{"level": "error"}], "document": "profile"}'
     assert str(response) == "{'status': 'warning', 'checks': [{'level': 'error'}], 'document': 'profile'}"
     assert f"{Status.OK}: {DocumentId.PLAN}.svg" == "ok: plan.svg"
+
+
+def test_topology_methods_return_copies_and_leave_validation_to_validator(route_data):
+    project = Project.model_validate(route_data)
+    before = project.model_dump()
+    point = {"id": "P1a", "x": 90, "y": 0, "ground": 102.9, "axis": 100.35}
+    added = project.with_added_point("P1", point, bend_angle=90)
+    assert [item["id"] for item in added["points"]] == ["P0", "P1", "P1a", "P2", "P3", "P4", "P5"]
+    assert added["bends"][-1] == {"at": "P1a", "angle_deg": 90}
+    assert project.with_added_point("unknown", point) is None
+    removed = project.without_point("P2")
+    assert all(item["id"] != "P2" for item in removed["points"])
+    assert all(bend["at"] != "P2" for bend in removed["bends"])
+    assert project.without_point("unknown") is None
+    assert project.with_bend("P2", 45)["bends"] == [
+        {"at": "P2", "angle_deg": 45}, {"at": "P3", "angle_deg": 90},
+    ]
+    assert project.with_bend("unknown", 90) is None
+    assert project.without_bend("P1") is None
+    assert project.without_bend("P2")["bends"] == [{"at": "P3", "angle_deg": 90}]
+    replaced = project.with_point("P5", y=120, bend_at="P2", bend_angle=45)
+    assert len(replaced["bends"]) == 2 and replaced["bends"][0]["angle_deg"] == 45
+    assert project.model_dump() == before

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "llmagent"
 version = "0.1.0"
@@ -15,6 +19,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+
+[project.scripts]
+llmagent = "main:main"
+
+[tool.setuptools]
+packages = ["agent", "core", "core.checks"]
+py-modules = ["main"]
+
+[tool.setuptools.package-data]
+agent = ["system_prompt.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

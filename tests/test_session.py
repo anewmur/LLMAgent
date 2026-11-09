@@ -9,7 +9,7 @@ from core.session import RouteSession
 from core.paths import PROJECT_ROOT
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import DocumentId
-from core.settings import LOAD_ROUTE_DATA_ERROR
+from core.settings import BEND_ANGLE_REQUIRED, LOAD_ROUTE_DATA_ERROR
 
 
 NS = {"s": "http://www.w3.org/2000/svg"}
@@ -79,6 +79,13 @@ def test_unchanged_point_keeps_output_and_history(input_file, tmp_path, monkeypa
     assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
     missing = session.update_point("missing", x=280)
     assert missing["status"] == "error" and missing["problems"][0]["message"] == "Точка не найдена."
+    for arguments in ({}, {"unknown": 280}):
+        rejected = session.update_point("P5", **arguments)
+        assert rejected["status"] == "error"
+        assert rejected["problems"][0]["message"] == session_module.FIELDS_REQUIRED
+    missing_angle = session.update_point("P5", x=280, bend_at="P4")
+    assert missing_angle["status"] == "error"
+    assert missing_angle["problems"][0]["message"] == BEND_ANGLE_REQUIRED
     validation.assert_not_called()
     export.assert_not_called()
 
@@ -366,3 +373,158 @@ def test_loaded_route_can_be_corrected_after_failed_release(input_file, route_da
     assert session.calculate_route_length()["length_m"] == 360 and not session.problems
     assert (folder / "pdf/package.pdf").is_file() and len(session.changes) == 1
     assert route_file.read_bytes() == original
+
+
+def test_add_and_remove_straight_point_preserves_names_length_and_changes(input_file, tmp_path, config):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    added = session.add_point("P1a", after="P1", x=90, y=0, ground=102.9, axis=100.35)
+    assert added["status"] in ("ok", "warning"), added
+    assert [point.id for point in session.project.points] == ["P0", "P1", "P1a", "P2", "P3", "P4", "P5"]
+    assert session.calculate_route_length()["length_m"] == 360
+    assert session.project.points[2].axis == 100.35
+    assert "P1a" in (session.output_dir / "plan.svg").read_text(encoding="utf-8")
+    changes = (session.output_dir / "changes.md").read_text(encoding="utf-8")
+    assert "Добавление точки P1a" in changes and "None" not in changes and "— → 90,00" in changes
+    removed = session.remove_point("P1")
+    assert removed["status"] in ("ok", "warning"), removed
+    assert [point.id for point in session.project.points] == ["P0", "P1a", "P2", "P3", "P4", "P5"]
+    assert session.calculate_route_length()["length_m"] == 360
+
+
+def test_lateral_insert_is_atomic_and_can_be_retried_with_one_bend(route_data, write_route, tmp_path, config):
+    # У обоих соседей новой точки статус концов трассы: новых поворотов в них нет.
+    route_data["points"] = [route_data["points"][0], route_data["points"][2]]
+    route_data["bends"] = []
+    session = RouteSession(write_route(route_data), tmp_path / "output", config)
+    assert session.release()["status"] == "ok"
+    before = session.project.model_dump()
+    files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
+    rejected = session.add_point("P1a", "P0", 60, 60, 102.6, 100.2)
+    assert rejected["status"] == "error" and "Изменение не применено" in rejected["message"]
+    assert any(problem["where"] == "P1a" and "90,00 без отвода" in problem["message"] for problem in rejected["problems"])
+    assert session.project.model_dump() == before and not session.changes
+    assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == files
+    accepted = session.add_point("P1a", "P0", 60, 60, 102.6, 100.2, bend_angle=90)
+    assert accepted["status"] in ("ok", "warning"), accepted
+    assert session.calculate_route_length()["length_m"] == pytest.approx(120 * 2 ** 0.5)
+    assert [(bend.at, bend.angle_deg) for bend in session.project.bends] == [("P1a", 90)]
+
+
+@pytest.mark.parametrize("operation, arguments, where, message", [
+    ("remove_point", {"name": "P2"}, "P3", "угол отвода"),
+    ("remove_point", {"name": "unknown"}, "unknown", "Точка не найдена"),
+    ("add_bend", {"at": "P1", "angle_deg": 90}, "P1", "угол отвода"),
+    ("remove_bend", {"at": "P2"}, "P2", "без отвода"),
+    ("remove_bend", {"at": "P1"}, "P1", "Отвод в этой точке не найден"),
+    ("add_bend", {"at": "P2", "angle_deg": 45}, "P2", "угол отвода"),
+    ("add_bend", {"at": "P0", "angle_deg": 90}, "P0", "концевой"),
+])
+def test_invalid_topology_edits_keep_project_and_output(input_file, tmp_path, config, operation, arguments, where, message):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    assert session.release()["status"] == "ok"
+    before = session.project.model_dump()
+    files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
+    result = getattr(session, operation)(**arguments)
+    assert result["status"] == "error" and "Изменение не применено" in result["message"]
+    assert any(problem["where"] == where and message in problem["message"] for problem in result["problems"])
+    assert session.project.model_dump() == before and not session.changes
+    assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == files
+
+
+def test_point_move_and_bend_are_applied_together_and_replace_existing_angle(input_file, tmp_path, config):
+    import re
+    session = RouteSession(input_file, tmp_path / "output", config)
+    rejected = session.update_point("P5", y=120)
+    assert rejected["status"] == "error" and session.project.points[-1].y == 80
+    problem = next(problem for problem in rejected["problems"] if problem["where"] == "P4")
+    angle = float(re.search(r"[0-9]+,[0-9]+", problem["message"]).group().replace(",", "."))
+    applied = session.update_point("P5", y=120, bend_at="P4", bend_angle=angle)
+    assert applied["status"] in ("ok", "warning"), applied
+    assert session.project.points[-1].y == 120
+    assert session.calculate_route_length()["length_m"] == pytest.approx(280 + (80 ** 2 + 40 ** 2) ** 0.5)
+    applied = session.update_point("P5", y=160, bend_at="P4", bend_angle=45)
+    assert applied["status"] in ("ok", "warning"), applied
+    assert len(session.project.bends) == 3
+    assert [bend.angle_deg for bend in session.project.bends if bend.at == "P4"] == [45]
+    assert any(value["name"] == "Угол отвода в P4" for value in applied["changes"]["values"])
+    assert session.update_point("P5", y=160, bend_at="P4", bend_angle=45) == {
+        "status": "ok", "message": "Значения не изменились.",
+    }
+    assert len(session.changes) == 2
+
+
+@pytest.mark.parametrize("operation", ["add", "remove"])
+def test_bend_operations_can_repair_loaded_route(route_data, write_route, tmp_path, config, operation):
+    if operation == "add":
+        route_data["bends"].pop(0)
+    else:
+        route_data["points"] = route_data["points"][:3]
+        route_data["bends"] = [{"at": "P1", "angle_deg": 90}]
+    session = RouteSession(write_route(route_data), tmp_path / "output", config)
+    result = session.add_bend("P2", 90) if operation == "add" else session.remove_bend("P1")
+    assert result["status"] == "ok", result
+    expected = "Добавление отвода в P2" if operation == "add" else "Удаление отвода в P1"
+    assert session.changes[-1].title == expected
+    assert len(session.project.bends) == (2 if operation == "add" else 0)
+
+
+def test_bend_replacement_and_angle_only_update_skip_repeated_release(input_file, tmp_path, config, monkeypatch):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    replaced = session.add_bend("P2", 89.8)
+    assert replaced["status"] in ("ok", "warning"), replaced
+    assert [(bend.at, bend.angle_deg) for bend in session.project.bends] == [("P2", 89.8), ("P3", 90)]
+    assert replaced["changes"]["values"] == [
+        {"name": "Угол отвода в P2", "before": 90, "after": 89.8, "unit": "°"},
+    ]
+    updated = session.update_point("P2", bend_angle=90)
+    assert updated["status"] == "ok", updated
+    assert [(bend.at, bend.angle_deg) for bend in session.project.bends] == [("P2", 90), ("P3", 90)]
+    assert updated["changes"]["values"] == [
+        {"name": "Угол отвода в P2", "before": 89.8, "after": 90, "unit": "°"},
+    ]
+    files = {path.relative_to(session.output_dir): path.read_bytes()
+             for path in session.output_dir.rglob("*") if path.is_file()}
+    before_changes = session.changes.copy()
+    validation = Mock(side_effect=AssertionError("Неизменённые данные не требуют проверки"))
+    export = Mock(side_effect=AssertionError("Неизменённые данные не требуют выпуска"))
+    monkeypatch.setattr(session_module, "validate_input", validation)
+    monkeypatch.setattr(session_module, "create_package", export)
+    assert session.add_bend("P2", 90) == {"status": "ok", "message": "Значения не изменились."}
+    assert session.update_point("P2", bend_angle=90) == {"status": "ok", "message": "Значения не изменились."}
+    assert session.changes == before_changes
+    assert {path.relative_to(session.output_dir): path.read_bytes()
+            for path in session.output_dir.rglob("*") if path.is_file()} == files
+    validation.assert_not_called()
+    export.assert_not_called()
+
+
+def test_ground_update_changes_depth_and_lists_ground_once(input_file, tmp_path, config):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    result = session.update_point("P3", ground=103.6)
+    assert result["status"] == "ok", result
+    assert result["changes"]["values"] == [
+        {"name": "P3, отметка земли", "before": 103.4, "after": 103.6, "unit": "м"},
+    ]
+    assert session.project.points[3].ground == 103.6 and session.project.points[3].axis == 100.6
+    assert session.calculate_route_length()["length_m"] == 360
+    assert "103,60" in (session.output_dir / "profile.svg").read_text(encoding="utf-8")
+    assert "P3, отметка земли: **103,40 → 103,60 м**" in (
+        session.output_dir / "changes.md"
+    ).read_text(encoding="utf-8")
+
+
+def test_remove_point_rejects_too_few_points(route_data, write_route, tmp_path, config):
+    route_data["points"] = route_data["points"][:2]
+    route_data["bends"] = []
+    session = RouteSession(write_route(route_data), tmp_path / "output", config)
+    assert session.release()["status"] == "ok"
+    before = session.project.model_dump()
+    files = {path.relative_to(session.output_dir): path.read_bytes()
+             for path in session.output_dir.rglob("*") if path.is_file()}
+    rejected = session.remove_point("P1")
+    assert rejected["status"] == "error" and len(session.project.points) == 2
+    assert len(rejected["problems"]) == 1 and rejected["problems"][0]["where"] == "points"
+    assert "at least 2 items" in rejected["problems"][0]["message"]
+    assert session.project.model_dump() == before and not session.changes
+    assert {path.relative_to(session.output_dir): path.read_bytes()
+            for path in session.output_dir.rglob("*") if path.is_file()} == files

@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+    width="420mm" height="297mm" viewBox="0 0 420 297">
+  <rect width="420" height="297" fill="white"/>
+  <!-- Рамка и контур штампа: толщина линий 0.7 мм по эталону. -->
+  <g fill="none" stroke="black" stroke-width="0.7">
+    <rect id="frame" x="20" y="5" width="395" height="287"/>
+    <rect id="title-block" x="230" y="237" width="185" height="55"/>
+  </g>
+
+    <g transform="translate(230 237)">
+    <!-- Толстые внутренние линии штампа. -->
+    <g fill="none" stroke="black" stroke-width="0.7">
+      <!-- Разделитель левой и правой частей -->
+      <path d="M 65,0 V 55"/>
+      <!-- Низ блока изменений / верх блока подписей (на всю ширину) -->
+      <path d="M 0,25 H 185"/>
+      <!-- Верх строки заголовков изменений (только слева) -->
+      <path d="M 0,20 H 65"/>
+    </g>
+    <!-- Тонкие линии сетки. -->
+    <g fill="none" stroke="black" stroke-width="0.3">
+      <!-- Горизонтали левой части: строки по 5 мм -->
+      <path d="M 0,5 H 65 M 0,10 H 65 M 0,15 H 65"/>
+      <path d="M 0,30 H 65 M 0,35 H 65 M 0,40 H 65 M 0,45 H 65 M 0,50 H 65"/>
+      <!-- Вертикали зоны изменений (y=0..25): 10+10+10+10+15+10 -->
+      <path d="M 10,0 V 25 M 20,0 V 25 M 30,0 V 25 M 40,0 V 25 M 55,0 V 25"/>
+      <!-- Вертикали блока подписей (y=25..55): 20+20+15+10 -->
+      <path d="M 20,25 V 55 M 40,25 V 55 M 55,25 V 55"/>
+      <!-- Правая часть: низ обозначения, низ объекта -->
+      <path d="M 65,10 H 185"/>
+      <!-- Стадия / Лист / Листов: подписи и значения -->
+      <path d="M 135,25 V 55 M 150,25 V 40 M 165,25 V 40"/>
+      <path d="M 135,30 H 185"/>
+      <path d="M 65,40 H 185"/>
+    </g>
+    <g font-family="DejaVu Sans" fill="black">
+      <!-- Правая часть: обозначение, объект, название листа -->
+      <g text-anchor="middle">
+        <text x="125" y="7" font-size="2.5">AI-TEST-01-НВ.СО</text>
+        <text x="125" y="19.5" font-size="2.5">Учебный участок водопровода</text>
+        <text x="100" y="35.5" font-size="2.5"><tspan x="100" y="33.25">Спецификация оборудования, изделий</tspan><tspan x="100" y="37.75">и материалов</tspan></text>
+        <text x="142.5" y="28.7" font-size="2.5">Стадия</text>
+        <text x="142.5" y="36.5" font-size="2.5">Р</text>
+        <text x="157.5" y="28.7" font-size="2.5">Лист</text>
+        <text x="157.5" y="36.5" font-size="2.5"></text>
+        <text x="175" y="28.7" font-size="2.5">Листов</text>
+        <text x="175" y="36.5" font-size="2.5">1</text>
+      </g>
+      <!-- Заголовки граф изменений -->
+      <g text-anchor="middle" font-size="2.5">
+        <text x="5" y="23.7">Изм.</text>
+        <text x="15" y="23.7">Кол.уч.</text>
+        <text x="25" y="23.7">Лист</text>
+        <text x="35" y="23.7">№ док.</text>
+        <text x="47.5" y="23.7">Подп.</text>
+        <text x="60" y="23.7">Дата</text>
+      </g>
+      <!-- Роли в блоке подписей (колонка 20 мм) -->
+      <g text-anchor="start" font-size="2.5">
+        <text x="1.5" y="28.7">Разраб.</text>
+        <text x="1.5" y="33.7">Пров.</text>
+        <text x="1.5" y="48.7">Н. контр.</text>
+        <text x="1.5" y="53.7">ГИП</text>
+      </g>
+    </g>
+  </g>
+
+
+  <text x="217.5" y="18" text-anchor="middle"
+        font-family="DejaVu Sans" font-size="5">УЧЕБНЫЙ КОМПЛЕКТ</text>
+  <text id="paper-format" x="414" y="295.5" text-anchor="end"
+        font-family="DejaVu Sans" font-size="2.5">Формат A3</text>
+<g xmlns="http://www.w3.org/2000/svg" id="specification-table"
+   font-family="DejaVu Sans" font-size="3.5" fill="black">
+  <!-- Форма 1: шапка 32 мм (y=30..62), строки от 8 мм, низ таблицы y=222. -->
+  <rect x="20" y="30" width="395" height="192"
+        fill="none" stroke="black" stroke-width="0.7"/>
+<text x="30" y="47.2" text-anchor="middle">Поз.</text>
+<path d="M 40,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="105" y="47.2" text-anchor="middle">Наименование и техническая характеристика</text>
+<path d="M 170,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="200" y="45.2" text-anchor="middle">Тип, марка, обозначение</text>
+<text x="200" y="49.2" text-anchor="middle">документа, опросного листа</text>
+<path d="M 230,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="247.5" y="47.2" text-anchor="middle">Код продукции</text>
+<path d="M 265,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="287.5" y="47.2" text-anchor="middle">Поставщик</text>
+<path d="M 310,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="320" y="45.2" text-anchor="middle">Ед.</text>
+<text x="320" y="49.2" text-anchor="middle">измерения</text>
+<path d="M 330,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="340" y="45.2" text-anchor="middle">Коли-</text>
+<text x="340" y="49.2" text-anchor="middle">чество</text>
+<path d="M 350,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="362.5" y="45.2" text-anchor="middle">Масса 1</text>
+<text x="362.5" y="49.2" text-anchor="middle">ед., кг</text>
+<path d="M 375,30 V 222" stroke="black" stroke-width="0.3"/>
+<text x="395" y="47.2" text-anchor="middle">Примечание</text>
+<path d="M 20,62 H 415" stroke="black" stroke-width="0.3"/>
+<g id="spec-row-1">
+<text x="30" y="69.2" text-anchor="middle">1</text>
+<text x="42" y="69.2" text-anchor="start">Отвод 90° ПЭ 100 SDR 17 110</text>
+
+
+
+<text x="320" y="69.2" text-anchor="middle">шт.</text>
+<text x="340" y="69.2" text-anchor="middle">2</text>
+
+<text x="377" y="65.2" text-anchor="start">Материал и SDR</text>
+<text x="377" y="69.2" text-anchor="start">приняты как у</text>
+<text x="377" y="73.2" text-anchor="start">трубы</text>
+</g>
+<path d="M 20,74 H 415" stroke="black" stroke-width="0.3"/>
+<g id="spec-row-2">
+<text x="30" y="81.2" text-anchor="middle">2</text>
+<text x="42" y="81.2" text-anchor="start">Труба ПЭ 100 SDR 17 110×6,6</text>
+
+
+
+<text x="320" y="81.2" text-anchor="middle">м</text>
+<text x="340" y="81.2" text-anchor="middle">360,00</text>
+
+<text x="377" y="77.2" text-anchor="start">Без запаса и</text>
+<text x="377" y="81.2" text-anchor="start">вычета монтажных</text>
+<text x="377" y="85.2" text-anchor="start">длин отводов</text>
+</g>
+<path d="M 20,86 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,94 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,102 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,110 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,118 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,126 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,134 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,142 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,150 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,158 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,166 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,174 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,182 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,190 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,198 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,206 H 415" stroke="black" stroke-width="0.3"/>
+<path d="M 20,214 H 415" stroke="black" stroke-width="0.3"/>
+</g>
+
+</svg>

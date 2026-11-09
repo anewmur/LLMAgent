@@ -47,13 +47,14 @@ def test_reference_is_clear_and_close_points_publish_and_commit_warning(input_fi
     assert any(check["id"] == "plan_label_overlap" and check["passed"] for check in reference["checks"])
     assert not any(check["level"] == "warning" for check in reference["checks"])
 
-    # P1 и P2 находятся в 2 м друг от друга; геометрия обоих отводов остаётся правильной.
-    result = session.update_point("P1", x=118)
+    # P0 и P1 находятся в 2 м друг от друга; блоки с одной стороны действительно пересекаются.
+    result = session.update_point("P1", x=2)
 
     assert result["status"] == "warning", result
-    assert session.project.points[1].x == 118
+    assert session.project.points[1].x == 2
     assert len(session.changes) == 1
     assert any(message.startswith("План:") for message in result["warnings"])
+    assert any('"P0" и "P1"' in message for message in result["warnings"])
     assert any(message.startswith("Профиль:") for message in result["warnings"])
     assert (folder / "pdf/package.pdf").is_file()
     assert (folder / "changes.md").is_file()

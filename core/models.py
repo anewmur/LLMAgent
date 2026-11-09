@@ -3,10 +3,13 @@ from enum import Enum, IntEnum
 
 from pydantic import BaseModel, Field
 
+from core.settings import MIN_POINTS
+
 
 UNIT_M = "м"
 UNIT_MM = "мм"
 UNIT_PIECE = "шт."
+UNIT_DEGREE = "°"
 # Место проблемы, относящейся к трубе, в ответах проверки.
 PIPE_WHERE = "pipe"
 
@@ -42,6 +45,8 @@ class ProblemCode(str, Enum):
     ZERO_LENGTH = "zero_length"
     END_BEND = "end_bend"
     BEND_ANGLE = "bend_angle"
+    MISSING_BEND = "missing_bend"
+    BEND_NOT_FOUND = "bend_not_found"
     FIELDS_REQUIRED = "fields_required"
     POINT_NOT_FOUND = "point_not_found"
     __str__ = str.__str__
@@ -67,7 +72,7 @@ class Problem:
         return self.code in (
             ProblemCode.MISSING_BEND_POINT, ProblemCode.DUPLICATE_BEND,
             ProblemCode.MATERIAL_CONFLICT, ProblemCode.END_BEND, ProblemCode.BEND_ANGLE,
-            ProblemCode.PIPE_SDR_MISMATCH,
+            ProblemCode.PIPE_SDR_MISMATCH, ProblemCode.MISSING_BEND,
         )
 
     def to_dict(self):
@@ -117,6 +122,7 @@ class PointField(Enum):
     X = ("x", "x", "X", UNIT_M)
     Y = ("y", "y", "Y", UNIT_M)
     AXIS = ("axis", "axis", "отметка оси трубы", UNIT_M)
+    GROUND = ("ground", "ground", "отметка земли", UNIT_M)
 
     def __init__(self, argument, attribute, label, unit):
         self.argument = argument
@@ -188,7 +194,7 @@ class ObjectInfo(BaseModel):
 class Project(BaseModel):
     object: ObjectInfo
     pipe: Pipe
-    points: list[Point] = Field(min_length=2)
+    points: list[Point] = Field(min_length=MIN_POINTS)
     bends: list[Bend]
 
     def bend_names(self) -> dict:
@@ -197,14 +203,61 @@ class Project(BaseModel):
         point_ids = [point.id for point in self.points if point.id in bend_ids]
         return {point_id: f"УП{index}" for index, point_id in enumerate(point_ids, 1)}
 
-    def with_point(self, name, **fields) -> dict | None:
-        """Копия проекта с правкой точки."""
+    def with_point(self, name, bend_angle=None, bend_at=None, **fields) -> dict | None:
+        """Копия проекта с правкой точки и необязательной установкой отвода."""
         data = self.model_dump()
         for point in data["points"]:
             if point["id"] == name:
                 point.update(fields)
+                if bend_angle is not None:
+                    self.set_bend(data, name if bend_at is None else bend_at, bend_angle)
                 return data
         return None
+
+    @staticmethod
+    def set_bend(data, at, angle_deg):
+        """Добавляет отвод в копию данных или заменяет угол существующего."""
+        for bend in data["bends"]:
+            if bend["at"] == at:
+                bend["angle_deg"] = angle_deg
+                return
+        data["bends"].append({"at": at, "angle_deg": angle_deg})
+
+    def with_added_point(self, after, point, bend_angle=None) -> dict | None:
+        """Возвращает копию с точкой после after и необязательным отводом в ней."""
+        data = self.model_dump()
+        for index, existing in enumerate(data["points"]):
+            if existing["id"] == after:
+                data["points"].insert(index + 1, dict(point))
+                if bend_angle is not None:
+                    self.set_bend(data, point["id"], bend_angle)
+                return data
+        return None
+
+    def without_point(self, name) -> dict | None:
+        """Возвращает копию без точки и отвода в ней либо None, если точки нет."""
+        if not any(point.id == name for point in self.points):
+            return None
+        data = self.model_dump()
+        data["points"] = [point for point in data["points"] if point["id"] != name]
+        data["bends"] = [bend for bend in data["bends"] if bend["at"] != name]
+        return data
+
+    def with_bend(self, at, angle_deg) -> dict | None:
+        """Возвращает копию с установленным отводом; согласованность проверяет валидатор."""
+        if not any(point.id == at for point in self.points):
+            return None
+        data = self.model_dump()
+        self.set_bend(data, at, angle_deg)
+        return data
+
+    def without_bend(self, at) -> dict | None:
+        """Возвращает копию без отвода в точке либо None, если отвода нет."""
+        if not any(bend.at == at for bend in self.bends):
+            return None
+        data = self.model_dump()
+        data["bends"] = [bend for bend in data["bends"] if bend["at"] != at]
+        return data
 
     def with_pipe(self, **fields) -> dict | None:
         """Возвращает копию с правкой трубы и согласованным материалом либо None без изменений."""

@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from core.formatting import format_number, format_pipe_value
 from core.models import PIPE_WHERE, Level, Problem, ProblemCode, Project
-from core.settings import PIPE_SDR_TOLERANCE
+from core.settings import MISSING_BEND_MESSAGE, PIPE_SDR_TOLERANCE
 
 
 ANGLE_TOLERANCE_DEG = 0.5  # Допуск сравнения угла отвода, градусы.
@@ -30,6 +30,7 @@ class InputValidator:
         self.check_pipe_sdr()
         self.check_segments()
         self.check_bend_angles()
+        self.check_unbent_turns()
         return self.project, self.problems
 
     def check_structure(self):
@@ -141,6 +142,20 @@ class InputValidator:
                     f"угол отвода в данных {bend.angle_deg:g}, "
                     f"по координатам поворот {turn_deg:.1f}",
                     where=bend.at,
+                ))
+
+    def check_unbent_turns(self):
+        """Отмечает внутренние повороты трассы, для которых не задан отвод."""
+        bend_points = {bend.at for bend in self.project.bends}
+        for index in range(1, len(self.project.points) - 1):
+            point = self.project.points[index]
+            if point.id in bend_points:
+                continue
+            angle = self.turn_angle(index)
+            if angle is not None and angle > ANGLE_TOLERANCE_DEG:
+                self.problems.append(Problem(
+                    Level.ERROR, ProblemCode.MISSING_BEND,
+                    MISSING_BEND_MESSAGE.format(angle=format_number(angle)), where=point.id,
                 ))
 
 

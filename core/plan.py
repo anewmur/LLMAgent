@@ -1,5 +1,5 @@
-from math import atan2, degrees
-from xml.sax.saxutils import escape, quoteattr
+from math import atan2, degrees, hypot
+from xml.sax.saxutils import escape, quoteattr, unescape
 
 from core import drawing_settings as settings
 from core.calculations import calculate_route_geometry
@@ -10,14 +10,17 @@ from core.formatting import render_template
 
 
 LEGEND_PATH = TEMPLATES_DIR / "plan_legend.svg"
+POINT_MARKER_PATH = TEMPLATES_DIR / "plan_point_marker.svg"
+POINT_LABEL_PATH = TEMPLATES_DIR / "plan_point_label.svg"
+POINT_LEADER_PATH = TEMPLATES_DIR / "plan_point_leader.svg"
 
 
 class PlanDrawing:
     """План трассы на листе A3 (SVG).
 
     Метры местности переводятся в мм листа по масштабу (по умолчанию 1:1000),
-    трасса центрируется над штампом. Рисует линию трубы, имена и пикеты точек,
-    координаты, длины участков, подпись трубы и легенду. render() возвращает строку SVG.
+    трасса центрируется над штампом. Рисует трубу с кружками вершин, блоки имён,
+    пикетов и координат, длины, подпись трубы и легенду. render() возвращает SVG.
     """
 
     def __init__(self, project, document, scale=settings.PLAN_SCALE):
@@ -60,15 +63,24 @@ class PlanDrawing:
         return coordinates
 
     def draw_geometry(self):
-        """Возвращает SVG штриховой линии трубы без условных знаков колодцев."""
+        """Возвращает SVG штриховой трубы и белых кружков в её вершинах."""
         points = " ".join(f"{sheet_x},{sheet_y}" for sheet_x, sheet_y in self.coordinates)
         return "\n".join([
             f'<g id="route-geometry" data-scale="{self.scale}">',
             f'<polyline id="route-line" points="{points}" fill="none" stroke="black" '
             f'stroke-width="{settings.PLAN_ROUTE_LINE_WIDTH_MM}" '
             f'stroke-dasharray="{settings.PLAN_ROUTE_DASHARRAY_MM}" stroke-linejoin="miter"/>',
+            self.draw_point_markers(),
             '</g>',
         ])
+
+    def draw_point_markers(self):
+        """Возвращает кружки из шаблона; белая заливка перекрывает штрих трубы."""
+        return "\n".join(render_template(POINT_MARKER_PATH, {
+            "point_id": quoteattr(point.id), "point_x": sheet_x, "point_y": sheet_y,
+            "radius": settings.POINT_MARKER_DIAMETER_MM / 2,
+            "line_width": settings.POINT_MARKER_LINE_WIDTH_MM,
+        }) for point, (sheet_x, sheet_y) in zip(self.project.points, self.coordinates))
 
     def point_title(self, point_id):
         """Возвращает экранированное имя точки с номером УП и непрямым углом."""
@@ -99,22 +111,63 @@ class PlanDrawing:
         return sheet_x + settings.PLAN_POINT_LABEL_SIDE_OFFSET_MM, "start"
 
     def draw_point_labels(self):
-        """Возвращает SVG имён точек и пикетов из расчётных накопленных расстояний."""
-        elements = []
-        for index, (point, (sheet_x, sheet_y)) in enumerate(zip(self.project.points, self.coordinates)):
-            station = 0.0 if index == 0 else self.sections[index - 1]["cumsum_dist_m"]
-            label_x, anchor = self.point_label_position(index)
-            elements.append(
-                f'<text data-kind="point-name" data-point-id={quoteattr(point.id)} '
-                f'x="{label_x}" y="{sheet_y - settings.PLAN_POINT_NAME_OFFSET_MM}" '
-                f'text-anchor="{anchor}">{self.point_title(point.id)}</text>'
-            )
-            elements.append(
-                f'<text data-kind="station" data-point-id={quoteattr(point.id)} '
-                f'x="{label_x}" y="{sheet_y - settings.PLAN_STATION_OFFSET_MM}" '
-                f'text-anchor="{anchor}">{format_station(station)}</text>'
-            )
-        return "\n".join(elements)
+        """Возвращает блоки имени, пикета и координат на одной стороне каждой точки."""
+        return "\n".join(self.draw_point_label(index) for index in range(len(self.project.points)))
+
+    def draw_point_label(self, index):
+        """Возвращает один блок подписей из шаблона с необязательной выноской."""
+        point = self.project.points[index]
+        station = 0.0 if index == 0 else self.sections[index - 1]["cumsum_dist_m"]
+        values = {
+            "point_id": quoteattr(point.id), "title": self.point_title(point.id),
+            "station": format_station(station),
+            "coordinates": f"X={format_number(point.x)}, Y={format_number(point.y)}",
+            "coordinate_size": settings.PLAN_COORDINATE_FONT_SIZE_MM,
+        }
+        values.update(self.point_label_layout(index, values))
+        return render_template(POINT_LABEL_PATH, values)
+
+    def point_label_layout(self, index, values):
+        """Возвращает общее положение строк, удерживая весь блок в поле чертежа."""
+        width = max(len(unescape(values["title"])) * settings.PLAN_FONT_SIZE_MM,
+                    len(values["station"]) * settings.PLAN_FONT_SIZE_MM,
+                    len(values["coordinates"]) * settings.PLAN_COORDINATE_FONT_SIZE_MM)
+        width *= settings.TEXT_CHARACTER_WIDTH_FACTOR
+        field_right = self.sheet.width - settings.PLAN_FIELD_HORIZONTAL_MARGINS_MM + settings.PLAN_FIELD_LEFT_MM
+        if width > field_right - settings.PLAN_FIELD_LEFT_MM:
+            raise ValueError(f"Блок подписей точки {self.project.points[index].id} не помещается на A3.")
+        initial_x, anchor = self.point_label_position(index)
+        left = initial_x - width if anchor == "end" else initial_x
+        left = max(settings.PLAN_FIELD_LEFT_MM, min(left, field_right - width))
+        label_x = left + width if anchor == "end" else left
+        point_y = self.coordinates[index][1]
+        label_y = max(point_y, settings.PLAN_FIELD_TOP_MM + settings.PLAN_POINT_NAME_OFFSET_MM
+                      + settings.PLAN_FONT_SIZE_MM)
+        leader = ""
+        if (label_x, label_y) != (initial_x, point_y):
+            leader = self.point_label_leader(index, left, label_y, width)
+        return {"label_x": label_x, "anchor": anchor, "leader": leader,
+                "name_y": label_y - settings.PLAN_POINT_NAME_OFFSET_MM,
+                "station_y": label_y - settings.PLAN_STATION_OFFSET_MM,
+                "coordinates_y": label_y - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM}
+
+    def point_label_leader(self, index, left, label_y, width):
+        """Возвращает короткую линию от края кружка к ближайшему краю сдвинутого блока."""
+        point_x, point_y = self.coordinates[index]
+        top = label_y - settings.PLAN_POINT_NAME_OFFSET_MM - settings.PLAN_FONT_SIZE_MM
+        bottom = label_y - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM
+        end_x = max(left, min(point_x, left + width))
+        end_y = max(top, min(point_y, bottom))
+        distance = hypot(end_x - point_x, end_y - point_y)
+        radius = settings.POINT_MARKER_DIAMETER_MM / 2
+        if distance <= radius:
+            return ""
+        return render_template(POINT_LEADER_PATH, {
+            "point_id": quoteattr(self.project.points[index].id),
+            "start_x": point_x + (end_x - point_x) * radius / distance,
+            "start_y": point_y + (end_y - point_y) * radius / distance,
+            "end_x": end_x, "end_y": end_y, "line_width": settings.PLAN_PIPE_LEADER_WIDTH_MM,
+        })
 
     def pipe_label_text(self):
         """Возвращает обозначение трубы с материалом, SDR, диаметром и стенкой."""
@@ -141,24 +194,6 @@ class PlanDrawing:
             f'transform="translate({center_x:g} {center_y:g}) rotate({angle:g})">'
             f'{escape(text)}</text>'
         )
-
-    def draw_coordinates(self):
-        """Возвращает SVG исходных X и Y, отводя их от соседних участков и подписей."""
-        elements = []
-        for index, (point, (sheet_x, sheet_y)) in enumerate(zip(self.project.points, self.coordinates)):
-            neighbors = self.coordinates[max(0, index - 1):index + 2]
-            above_neighbor = any(neighbor_y < sheet_y for neighbor_x, neighbor_y in neighbors)
-            if above_neighbor:
-                label_y = sheet_y + settings.PLAN_COORDINATES_BELOW_OFFSET_MM
-            else:
-                label_y = sheet_y - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM
-            label = f"X={format_number(point.x)}, Y={format_number(point.y)}"
-            elements.append(
-                f'<text data-kind="coordinates" data-point-id={quoteattr(point.id)} '
-                f'x="{sheet_x}" y="{label_y}" font-size="{settings.PLAN_COORDINATE_FONT_SIZE_MM}" '
-                f'text-anchor="middle">{label}</text>'
-            )
-        return "\n".join(elements)
 
     def vertical_pipe_label(self, text, sheet_x, sheet_y):
         """Возвращает SVG выноски трубы выше подписи длины вертикального участка."""
@@ -193,10 +228,13 @@ class PlanDrawing:
             label_x = (start_x + end_x) / 2 - (end_y - start_y) / length_mm * settings.PLAN_LENGTH_OFFSET_MM
             label_y = ((start_y + end_y) / 2 + (end_x - start_x) / length_mm * settings.PLAN_LENGTH_OFFSET_MM
                        + settings.PLAN_TEXT_BASELINE_OFFSET_MM)
+            anchor = "middle"
+            if abs(end_x - start_x) < 1e-7:
+                anchor = "start" if end_y < start_y else "end"
             elements.append(
                 f'<text data-kind="length" data-start-id={quoteattr(section["start_id"])} '
                 f'data-end-id={quoteattr(section["end_id"])} x="{label_x}" y="{label_y}" '
-                f'text-anchor="middle">{format_number(section["length_m"])}</text>'
+                f'text-anchor="{anchor}">{format_number(section["length_m"])}</text>'
             )
         return "\n".join(elements)
 
@@ -207,7 +245,7 @@ class PlanDrawing:
                   f'font-size="{settings.PLAN_FONT_SIZE_MM}" fill="black">')
         elements = [
             self.draw_geometry(), labels,
-            self.draw_point_labels(), self.draw_coordinates(), self.draw_lengths(), self.draw_pipe_label(), '</g>',
+            self.draw_point_labels(), self.draw_lengths(), self.draw_pipe_label(), '</g>',
             self.draw_legend(),
         ]
         return self.sheet.render("\n".join(elements))

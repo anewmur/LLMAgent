@@ -2,6 +2,9 @@ from enum import Enum
 
 from core.drawing_settings import FONT_SIZES
 from core.models import PipeField, PointField
+from agent.settings import (
+    BEND_ANGLE_DESCRIPTION, BEND_AT_DESCRIPTION, EDIT_TOOL_RULES,
+)
 
 
 class ToolName(str, Enum):
@@ -13,6 +16,10 @@ class ToolName(str, Enum):
     CHANGE_PROFILE_FONT = "change_profile_font"
     UPDATE_POINT = "update_point"
     UPDATE_PIPE = "update_pipe"
+    ADD_POINT = "add_point"
+    REMOVE_POINT = "remove_point"
+    ADD_BEND = "add_bend"
+    REMOVE_BEND = "remove_bend"
     LOAD_ROUTE = "load_route"
     RELEASE_DOCUMENTS = "release_documents"
 
@@ -78,14 +85,14 @@ TOOLS = [
         ToolName.UPDATE_POINT,
         (
             "Изменить точку текущей трассы и перевыпустить комплект. name — имя точки, x и y — "
-            "координаты в плане, axis — отметка оси трубы, в метрах. Неуказанные поля остаются "
-            "прежними. Явный null — попытка удалить значение. При ошибке проект и документы не "
-            "меняются; уточни данные у пользователя. При warning изменение принято и комплект "
-            "опубликован; сообщи предупреждения."
-        ),
+            "координаты в плане, ground — отметка земли, axis — отметка оси трубы, в метрах. "
+            "Неуказанные поля остаются прежними. Явный null — попытка удалить значение. "
+        ) + EDIT_TOOL_RULES,
         properties={
             "name": {"type": "string"},
             **{field.argument: {"type": ["number", "null"]} for field in PointField},
+            "bend_angle": {"type": "number", "description": BEND_ANGLE_DESCRIPTION},
+            "bend_at": {"type": "string", "description": BEND_AT_DESCRIPTION},
         },
         required=("name",),
     ),
@@ -107,6 +114,34 @@ TOOLS = [
             for field in PipeField if field != PipeField.STANDARD
         },
         min_properties=1,
+    ),
+    tool(
+        ToolName.ADD_POINT,
+        (
+            "Добавить точку после указанной. Другие точки не переименовываются. "
+            "Если точка создаёт поворот, передай bend_angle — угол из сообщения проверки. "
+        ) + EDIT_TOOL_RULES,
+        properties={
+            "name": {"type": "string"}, "after": {"type": "string"},
+            **{field.argument: {"type": "number"} for field in PointField},
+            "bend_angle": {"type": "number", "description": BEND_ANGLE_DESCRIPTION},
+        },
+        required=("name", "after", *(field.argument for field in PointField)),
+    ),
+    tool(
+        ToolName.REMOVE_POINT,
+        "Удалить точку; отвод в ней удаляется вместе с ней. " + EDIT_TOOL_RULES,
+        properties={"name": {"type": "string"}}, required=("name",),
+    ),
+    tool(
+        ToolName.ADD_BEND,
+        "Добавить отвод в существующей точке трассы с указанным углом в градусах. " + EDIT_TOOL_RULES,
+        properties={"at": {"type": "string"}, "angle_deg": {"type": "number"}}, required=("at", "angle_deg"),
+    ),
+    tool(
+        ToolName.REMOVE_BEND,
+        "Удалить отвод в указанной точке трассы. " + EDIT_TOOL_RULES,
+        properties={"at": {"type": "string"}}, required=("at",),
     ),
     tool(
         ToolName.LOAD_ROUTE,

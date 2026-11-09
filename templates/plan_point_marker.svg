@@ -1,0 +1,3 @@
+<circle data-kind="point-marker" data-point-id=${point_id}
+        cx="${point_x}" cy="${point_y}" r="${radius}"
+        fill="white" stroke="black" stroke-width="${line_width}"/>

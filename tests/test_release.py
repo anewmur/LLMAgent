@@ -48,6 +48,8 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
         assert all(assumption in report for assumption in SHARED_ASSUMPTIONS)
         assert COORDINATE_ORIENTATION_NOTE in report
         assert "Отводы включены в спецификацию вопреки ГОСТ 21.704 п. 7.4" in report
+        assert ("Вершины трассы без колодцев показаны кружком; отдельного обозначения "
+                "ГОСТ 21.704-2011 для них не устанавливает (п. 3.6, 5.1.2).") in report
         assert f"Труба ⌀{diameter} при 1:100" in report
         assert length in (folder / "specification.csv").read_text(encoding="utf-8-sig")
         assert len(PdfReader(folder / "pdf/package.pdf").pages) == 4

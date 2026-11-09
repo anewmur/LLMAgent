@@ -7,7 +7,7 @@ from openai import APIError, OpenAI
 import yaml
 
 from agent.runtime import RouteAgent
-from agent.settings import BASE_URL, MODEL
+from agent.settings import BASE_URL, MISSING_API_KEY_MESSAGE, MODEL
 from agent.tools import ToolName
 from core.models import Status
 from core.paths import PROJECT_ROOT
@@ -29,6 +29,11 @@ def main(argv=None):
     parser = ArgumentParser(description="Диалог о трассе и выпуск комплекта документов.")
     parser.add_argument("input_file", nargs="?", type=Path, default=INPUT_PATH, help="Путь к JSON трассы.")
     arguments = parser.parse_args(argv)
+    load_dotenv(PROJECT_ROOT / "api_keys.env")
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        print(MISSING_API_KEY_MESSAGE)
+        return 1
     config = load_config()
     system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
     session = RouteSession(arguments.input_file, OUTPUT_DIR, config)
@@ -42,12 +47,15 @@ def main(argv=None):
         ToolName.CHANGE_PROFILE_FONT: session.change_profile_font,
         ToolName.UPDATE_POINT: session.update_point,
         ToolName.UPDATE_PIPE: session.update_pipe,
+        ToolName.ADD_POINT: session.add_point,
+        ToolName.REMOVE_POINT: session.remove_point,
+        ToolName.ADD_BEND: session.add_bend,
+        ToolName.REMOVE_BEND: session.remove_bend,
         ToolName.LOAD_ROUTE: session.load_route,
         ToolName.RELEASE_DOCUMENTS: session.release,
     }
-    load_dotenv(PROJECT_ROOT / "api_keys.env")
     client = OpenAI(
-        api_key=os.environ["DEEPSEEK_API_KEY"],
+        api_key=api_key,
         base_url=BASE_URL,
     )
     agent = RouteAgent(client, handlers, system_prompt, model=MODEL,
@@ -82,4 +90,4 @@ def run_dialogue(agent):
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
