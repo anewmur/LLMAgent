@@ -2,9 +2,9 @@
 
 from xml.sax.saxutils import escape
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.formatting import format_pipe_value, render_template
-from core.paths import TEMPLATES_DIR
+from config.paths import TEMPLATES_DIR
 from core.tables import text_width
 
 

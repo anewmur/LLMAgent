@@ -4,7 +4,7 @@ import csv
 
 from core.documents import DocumentSet
 from core.formatting import format_pipe_value
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import DocumentId
 from core.session import RouteSession
 from core.specification import HEADERS, SpecificationDrawing

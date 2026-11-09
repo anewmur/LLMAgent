@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from math import atan2, hypot, tan, cos
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 
 
 @dataclass(frozen=True)

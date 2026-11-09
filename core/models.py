@@ -3,7 +3,7 @@ from enum import Enum, IntEnum
 
 from pydantic import BaseModel, Field
 
-from core.settings import MIN_POINTS
+from config.settings import MIN_POINTS
 
 
 UNIT_M = "м"
@@ -218,7 +218,10 @@ class Project(BaseModel):
 
     @staticmethod
     def set_bend(data, at, angle_deg):
-        """Добавляет отвод в копию данных или заменяет угол существующего."""
+        """Устанавливает угол отвода в копии данных; нулевой угол удаляет отвод."""
+        if angle_deg == 0:
+            data["bends"] = [bend for bend in data["bends"] if bend["at"] != at]
+            return
         for bend in data["bends"]:
             if bend["at"] == at:
                 bend["angle_deg"] = angle_deg
@@ -242,7 +245,7 @@ class Project(BaseModel):
             return None
         data = self.model_dump()
         data["points"] = [point for point in data["points"] if point["id"] != name]
-        data["bends"] = [bend for bend in data["bends"] if bend["at"] != name]
+        self.set_bend(data, name, 0)
         return data
 
     def with_bend(self, at, angle_deg) -> dict | None:
@@ -258,7 +261,7 @@ class Project(BaseModel):
         if not any(bend.at == at for bend in self.bends):
             return None
         data = self.model_dump()
-        data["bends"] = [bend for bend in data["bends"] if bend["at"] != at]
+        self.set_bend(data, at, 0)
         return data
 
     def with_pipe(self, **fields) -> dict | None:

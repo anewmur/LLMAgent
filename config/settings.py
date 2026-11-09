@@ -1,6 +1,6 @@
 """Настройки проверки исходных данных и файлов выпуска."""
 
-from core.paths import PROJECT_ROOT
+from config.paths import PROJECT_ROOT
 
 # Допустимое расхождение D/e и заданного SDR, безразмерное; принятый допуск для округлённых размеров.
 PIPE_SDR_TOLERANCE = 0.5
@@ -13,8 +13,10 @@ CHANGES_FILENAME = "changes.md"
 LOG_WARNING_LABEL = "Предупреждение"
 USAGE_LOG_HEADING = "## Время, токены и стоимость API"
 
-# Каталог доступных агенту трасс; путь к нему определяется от корня проекта.
+# Каталог доступных агенту трасс в папке запуска.
 INPUT_DIR = PROJECT_ROOT / "input"
+INPUT_NOT_FOUND_MESSAGE = "Файл не найден: {path}"
+INPUT_READ_ERROR_MESSAGE = "Файл не читается: {path}. {error}"
 # Сообщение об ограничении пути при переключении трассы.
 LOAD_ROUTE_PATH_ERROR = "Укажите путь к JSON-файлу внутри папки input относительно корня проекта."
 # Сообщение об ошибке чтения или разбора файла новой трассы.

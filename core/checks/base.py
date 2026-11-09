@@ -5,7 +5,7 @@ from pypdf.errors import PdfReadError
 
 from core.calculations import calculate_point_levels, calculate_route_geometry
 from core.models import CheckResult, Level, Status
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.pipe_drawing import pipe_size_text, leader_crosses_shelf_text
 
 

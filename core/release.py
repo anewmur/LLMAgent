@@ -9,22 +9,22 @@ from reportlab.graphics import renderPDF
 from core.check_report import CheckReport
 from core.assumptions import load_assumptions, assumption_summary
 from core.documents import DocumentSet
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.formatting import format_change_value
 from core.general import GeneralData
 from core.models import DocumentId, Project, Status, ProblemCode
 from core.package_checks import PackageChecks
-from core.paths import TEMPLATES_DIR
+from config.paths import TEMPLATES_DIR
 from core.plan import PlanDrawing
 from core.profile import ProfileDrawing
 from core.sheet import svg_drawing
-from core.settings import CHANGES_FILENAME
+from config.settings import CHANGES_FILENAME
 from core.specification import SpecificationDrawing
 from core.formatting import render_template
 
 
 def clear_output(output_dir):
-    """Удаляет результаты предыдущего выпуска перед новой попыткой."""
+    """Очищает каталог выпуска перед записью новых результатов."""
     folder = Path(output_dir)
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True, exist_ok=True)
@@ -92,7 +92,6 @@ class PackageRelease:
 
     def create(self):
         try:
-            clear_output(self.output_dir)
             with TemporaryDirectory(prefix="llmagent-release-") as temp:
                 folder = Path(temp)
                 self.build_svg(folder)
@@ -102,9 +101,8 @@ class PackageRelease:
                 status = report.write(folder)
                 if status == Status.ERROR:
                     problems = report.problems()
-                    report_path = CheckReport.write_rejection(self.output_dir, problems)
                     return {"status": status, "released": False, "message": CheckReport.failure_message(checks),
-                            "checks": checks, "problems": problems, "report": report_path}
+                            "checks": checks, "problems": problems}
                 self.write_changes(folder)
                 self.publish(folder)
             return {"status": status, "released": True, "folder": str(self.output_dir), "checks": checks, "problems": report.problems(),
@@ -113,9 +111,8 @@ class PackageRelease:
                     "report": str(self.output_dir / "check_report.md")}
         except (OSError, ValueError, TypeError, KeyError) as error:
             problems = [{"code": ProblemCode.RELEASE_FAILED, "level": Status.ERROR, "where": "", "message": str(error)}]
-            report_path = CheckReport.write_rejection(self.output_dir, problems)
             return {"status": Status.ERROR, "released": False, "message": str(error),
-                    "problems": problems, "report": report_path}
+                    "problems": problems}
 
 
 def create_package(project: Project, output_dir, config, changes=None, font_size=DEFAULT_FONT_SIZE_MM):

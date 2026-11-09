@@ -1,11 +1,11 @@
 from pathlib import Path
 import csv
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.calculations import calculate_material_quantities
 from core.formatting import format_number, format_pipe_value
 from core.models import Project, SpecificationColumn, UNIT_M, UNIT_PIECE
-from core.paths import TEMPLATES_DIR
+from config.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.tables import TableCell
 from core.pipe_drawing import pipe_size_text

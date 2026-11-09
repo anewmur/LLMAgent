@@ -8,9 +8,7 @@ from agent.runtime import RouteAgent
 from agent.tools import ToolName
 from core.models import Status
 from core.plan import PlanDrawing
-from core.release import create_package
 from core.session import RouteSession
-from core.validate import validate_input
 import main
 
 
@@ -89,15 +87,15 @@ def test_load_is_sufficient_release_and_warnings_reach_model(input_file, tmp_pat
     assert all(problem["message"] in answer for problem in result["problems"])
 
 
-def test_rejected_render_removes_previous_successful_report(route_data, tmp_path, config, monkeypatch):
-    project, problems = validate_input(route_data)
-    assert not problems
+def test_current_project_render_failure_removes_previous_successful_report(input_file, tmp_path, config, monkeypatch):
     folder = tmp_path / "output"
-    assert create_package(project, folder, config)["status"] == Status.OK
+    session = RouteSession(input_file, folder, config)
+    assert session.release()["status"] == Status.OK
     assert (folder / "check_report.md").exists()
     def failed_render(self):
         raise ValueError("Ошибка оформления")
     monkeypatch.setattr(PlanDrawing, "render", failed_render)
-    result = create_package(project, folder, config)
+    result = session.release()
     assert result["status"] == Status.ERROR
+    assert result["released"] is False and result["problems"]
     assert {path.name for path in folder.iterdir()} == {"check_report.md"}

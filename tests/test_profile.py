@@ -3,7 +3,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from core.documents import DocumentSet
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.formatting import format_pipe_value
 from core.models import DocumentId
 from core.profile import ProfileDrawing
@@ -148,6 +148,7 @@ def test_font_tool_reissues_sheet_and_preserves_it_when_size_does_not_fit(input_
             assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
         geometry = ET.parse(folder / "profile.svg").getroot().find("s:g[@id='profile-geometry']", NS)
         assert float(geometry.get("data-font-size")) == size
+    before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
     assert session.change_profile_font(1)["status"] == "error"
     assert session.font_size == DEFAULT_FONT_SIZE_MM and len(session.changes) == 2
-    assert {path.name for path in folder.iterdir()} == {"check_report.md"}
+    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files

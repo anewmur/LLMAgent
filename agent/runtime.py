@@ -13,7 +13,7 @@ from agent.settings import (
 from agent.tools import TOOLS
 from agent.usage import TokenUsage, utc_now
 from core.models import Status, ProblemCode
-from core.settings import RELEASE_REFUSED_STATUS
+from config.settings import RELEASE_REFUSED_STATUS
 
 
 class RouteAgent:
@@ -106,7 +106,9 @@ class RouteAgent:
             errors = [problem for problem in result.get("problems", []) if problem.get("level") == Status.ERROR]
             missing = [problem for problem in errors if problem.get("code") == ProblemCode.MISSING_AXIS]
             if result.get("status") == Status.ERROR and missing:
-                if re.search(RELEASE_REFUSAL_PATTERN, text) and all(problem["where"] in text for problem in missing):
+                if re.search(RELEASE_REFUSAL_PATTERN, text) and all(
+                    re.search(rf"\b{re.escape(problem['where'])}\b", text) for problem in missing
+                ):
                     return None
                 details = "\n".join(f'{problem["where"]} — {problem["message"]}' for problem in errors)
                 return MISSING_AXIS_REPLY.format(

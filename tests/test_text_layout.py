@@ -4,7 +4,7 @@ import re
 from core.plan import PlanDrawing
 from core.assumptions import load_assumptions
 from core.documents import DocumentSet
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.general import GeneralData
 from core.models import DocumentId, Project
 from core.specification import SpecificationDrawing

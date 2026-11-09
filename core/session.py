@@ -11,15 +11,15 @@ from core.calculations import (
 from core.documents import DocumentSet
 from core.check_report import CheckReport
 from core.formatting import render_template
-from core.paths import PROJECT_ROOT, TEMPLATES_DIR
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.paths import PROJECT_ROOT, TEMPLATES_DIR
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import (
     Change, ChangeSet, DocumentId, Level, PipeField, PointField,
     PIPE_WHERE, Problem, ProblemCode, Status, UNIT_DEGREE, UNIT_M, UNIT_MM,
 )
 from core.profile_style import ProfileStyle
 from core.release import create_package, clear_output
-from core.settings import (
+from config.settings import (
     INPUT_DIR, LOAD_ROUTE_DATA_ERROR, LOAD_ROUTE_ERROR, LOAD_ROUTE_PATH_ERROR, LOG_WARNING_LABEL, TOOL_LOG_FILENAME,
     UPDATE_REJECTED_MESSAGE, BEND_NOT_FOUND, BEND_FIELDS_REQUIRED,
     TITLE_ADD_POINT, TITLE_REMOVE_POINT, TITLE_ADD_BEND, TITLE_REMOVE_BEND,
@@ -103,18 +103,21 @@ class RouteSession:
             return self.problem_response(Status.ERROR, blocking)
         return self.problem_response(Status.OK, self.problems, **calculate_material_quantities(self.project))
 
-    def refuse_release(self, problems):
-        """Очищает старый комплект и сохраняет отчёт об отказе по исходным данным."""
+    def refuse_release(self, result):
+        """Сохраняет отказ по текущему проекту вместо уже недействительного комплекта."""
         clear_output(self.output_dir)
-        result = self.problem_response(Status.ERROR, problems, released=False, message=INPUT_INVALID)
         result["report"] = CheckReport.write_rejection(self.output_dir, result["problems"])
         return result
 
     def release(self):
         """Возвращает результат выпуска, включая проверки и допущения отчёта."""
         if self.has_errors(self.project, self.problems):
-            return self.refuse_release(self.problems)
+            return self.refuse_release(self.problem_response(
+                Status.ERROR, self.problems, released=False, message=INPUT_INVALID,
+            ))
         result = create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)
+        if result["status"] == Status.ERROR:
+            self.refuse_release(result)
         if "checks" in result:
             result["checks"] = [check.to_dict() for check in result["checks"]]
         return result

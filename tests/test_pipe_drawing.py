@@ -3,7 +3,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.assumptions import load_assumptions
 from core.documents import DocumentSet
 from core.models import DocumentId, Project, Status

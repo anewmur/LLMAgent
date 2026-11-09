@@ -1,10 +1,10 @@
 from math import hypot
 from xml.sax.saxutils import escape, quoteattr, unescape
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.calculations import calculate_route_geometry
 from core.formatting import format_number, format_station, format_point_title
-from core.paths import TEMPLATES_DIR
+from config.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.drawing_scale import choose_plan_scale
 from core.pipe_drawing import pipe_line_count, pipe_leader

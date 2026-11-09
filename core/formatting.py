@@ -2,7 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from string import Template
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 
 
 def format_number(value, places=2):

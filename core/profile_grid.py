@@ -2,9 +2,9 @@ from xml.sax.saxutils import escape, quoteattr
 from html import unescape
 from dataclasses import dataclass
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.formatting import format_number, format_pipe_value, format_station, format_slope, render_template
-from core.paths import TEMPLATES_DIR
+from config.paths import TEMPLATES_DIR
 from core.label_geometry import labels_too_close, text_bounds
 from core.tables import text_width
 from core.profile_labels import ProfileLabel

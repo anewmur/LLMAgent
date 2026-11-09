@@ -1,7 +1,7 @@
 import math
 import re
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.checks.base import BaseChecks, NS
 from core.formatting import format_number, format_station, format_slope
 from core.models import DocumentId, Level

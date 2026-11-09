@@ -1,6 +1,6 @@
 from pypdf import PdfReader
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.checks.base import BaseChecks
 from core.formatting import format_number, format_station, format_slope
 from core.models import DocumentId

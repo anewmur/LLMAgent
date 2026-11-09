@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.formatting import format_pipe_value
 from core.pipe_drawing import pipe_line_count, pipe_line_description
 

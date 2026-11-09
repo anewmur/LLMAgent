@@ -10,15 +10,15 @@ from agent.runtime import RouteAgent
 from agent.settings import BASE_URL, MISSING_API_KEY_MESSAGE, MODEL
 from agent.tools import ToolName
 from core.models import Status
-from core.paths import PROJECT_ROOT
+from config.paths import PACKAGE_ROOT, PROJECT_ROOT
 from core.session import RouteSession
-from core.settings import INPUT_DIR
+from config.settings import INPUT_DIR, INPUT_NOT_FOUND_MESSAGE, INPUT_READ_ERROR_MESSAGE
 
 
 INPUT_PATH = INPUT_DIR / "input.json"
 OUTPUT_DIR = PROJECT_ROOT / "output"
-CONFIG_PATH = PROJECT_ROOT / "config" / "requirements.yaml"
-SYSTEM_PROMPT_PATH = PROJECT_ROOT / "agent" / "system_prompt.md"
+CONFIG_PATH = PACKAGE_ROOT / "config" / "requirements.yaml"
+SYSTEM_PROMPT_PATH = PACKAGE_ROOT / "agent" / "system_prompt.md"
 
 
 def load_config():
@@ -29,14 +29,21 @@ def main(argv=None):
     parser = ArgumentParser(description="Диалог о трассе и выпуск комплекта документов.")
     parser.add_argument("input_file", nargs="?", type=Path, default=INPUT_PATH, help="Путь к JSON трассы.")
     arguments = parser.parse_args(argv)
+    config = load_config()
+    try:
+        session = RouteSession(arguments.input_file, OUTPUT_DIR, config)
+    except FileNotFoundError:
+        print(INPUT_NOT_FOUND_MESSAGE.format(path=arguments.input_file))
+        return 1
+    except (OSError, ValueError) as error:
+        print(INPUT_READ_ERROR_MESSAGE.format(path=arguments.input_file, error=error))
+        return 1
     load_dotenv(PROJECT_ROOT / "api_keys.env")
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
         print(MISSING_API_KEY_MESSAGE)
         return 1
-    config = load_config()
     system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-    session = RouteSession(arguments.input_file, OUTPUT_DIR, config)
     initial = session.release()
     if initial["status"] == Status.ERROR:
         print("Начальный выпуск не выполнен:", initial.get("problems") or initial.get("message"))

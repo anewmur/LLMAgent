@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 from core.checks.base import CheckContext
 from core.checks.plan import PlanChecks
 from core.documents import DocumentSet
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM, PLAN_FONT_SIZE_MM, PLAN_LENGTH_OFFSET_MM
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM, PLAN_FONT_SIZE_MM, PLAN_LENGTH_OFFSET_MM
 from core.models import DocumentId, Status
 from core.plan import PlanDrawing
 from core.session import RouteSession

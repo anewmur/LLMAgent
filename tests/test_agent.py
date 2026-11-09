@@ -12,9 +12,9 @@ from core.models import DocumentId
 from core.documents import DocumentSet
 from core.plan import PlanDrawing
 from core.assumptions import load_assumptions
-from core.drawing_settings import PROFILE_VERTICAL_SCALE
+from config.drawing_settings import PROFILE_VERTICAL_SCALE
 from core.models import Level, ProblemCode, Status
-from core.settings import MISSING_AXIS_MESSAGE
+from config.settings import MISSING_AXIS_MESSAGE
 from core.session import RouteSession
 from main import SYSTEM_PROMPT_PATH
 
@@ -82,6 +82,7 @@ def test_questions_preserve_history_and_log_tools():
     ("Комплект не выпущен: P3 и P4 без отметок. Задайте значения.", True),
     ("Комплект выпущен. P3 и P4 без отметок.", False),
     ("Комплект не выпущен: у P3 нет отметки.", False),
+    ("Комплект не выпущен: P30 и P4 без отметок.", False),
 ])
 def test_missing_axis_keeps_complete_refusal_and_repairs_incomplete_answer(model_text, preserved):
     client = Mock()

@@ -1,10 +1,10 @@
 from xml.sax.saxutils import quoteattr
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.calculations import calculate_route_geometry
 from core.formatting import format_number, format_pipe_value, render_template
 from core.models import DocumentId
-from core.paths import TEMPLATES_DIR
+from config.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.tables import RegisterTable, TextBlock
 

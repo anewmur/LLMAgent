@@ -1,9 +1,9 @@
 from textwrap import wrap
 from xml.sax.saxutils import escape
 
-from core import drawing_settings as settings
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
-from core.paths import TEMPLATES_DIR
+from config import drawing_settings as settings
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.paths import TEMPLATES_DIR
 from core.formatting import render_template
 
 

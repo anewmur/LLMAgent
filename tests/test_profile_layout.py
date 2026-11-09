@@ -4,14 +4,14 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.calculations import load_project
 from core.checks.base import CheckContext
 from core.checks.profile import ProfileChecks
 from core.documents import DocumentSet
 from core.formatting import format_slope
 from core.models import DocumentId, Project, Status
-from core.paths import PROJECT_ROOT
+from config.paths import PROJECT_ROOT
 from core.profile import ProfileDrawing
 from core.profile_labels import ProfileLabels
 from core.release import create_package

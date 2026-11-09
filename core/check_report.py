@@ -1,7 +1,7 @@
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.models import CheckResult, Status
-from core.settings import RELEASE_REFUSED_STATUS
-from core.paths import TEMPLATES_DIR
+from config.settings import RELEASE_REFUSED_STATUS
+from config.paths import TEMPLATES_DIR
 from core.formatting import render_template
 
 

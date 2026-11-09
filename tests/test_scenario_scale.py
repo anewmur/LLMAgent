@@ -6,7 +6,7 @@ from xml.etree import ElementTree as ET
 import pytest
 from openai.types.chat import ChatCompletionMessage
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.models import DocumentId, Project, Status, ProblemCode
 from core.documents import DocumentSet
 from core.assumptions import load_assumptions
@@ -14,8 +14,8 @@ from core.general import GeneralData
 from core.plan import PlanDrawing
 from core.profile import ProfileDrawing
 from core.session import RouteSession
-from core.paths import PROJECT_ROOT
-from core.settings import MISSING_AXIS_MESSAGE, RELEASE_REFUSED_STATUS
+from config.paths import PROJECT_ROOT
+from config.settings import MISSING_AXIS_MESSAGE, RELEASE_REFUSED_STATUS
 from agent.runtime import RouteAgent
 from agent.tools import ToolName
 from main import SYSTEM_PROMPT_PATH

@@ -9,12 +9,12 @@ from core.plan import PlanDrawing
 from core import session as session_module
 from core.assumptions import load_assumptions
 from core.session import RouteSession
-from core.paths import PROJECT_ROOT
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.paths import PROJECT_ROOT
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import DocumentId
 from core.calculations import calculate_route_geometry
 from core.formatting import format_pipe_value
-from core.settings import BEND_FIELDS_REQUIRED, LOAD_ROUTE_DATA_ERROR
+from config.settings import BEND_FIELDS_REQUIRED, LOAD_ROUTE_DATA_ERROR
 from core.validate import InputValidator
 
 
@@ -252,13 +252,14 @@ def test_pipe_update_resolves_material_conflict(route_data, tmp_path, config, wr
     assert input_file.read_bytes() == original
 
 
-def test_rejected_point_update_preserves_published_package(input_file, tmp_path, config):
+@pytest.mark.parametrize("values", [{"y": 100}, {"x": 3000}])
+def test_rejected_point_update_preserves_published_package(input_file, tmp_path, config, values):
     session = RouteSession(input_file, tmp_path / "output", config)
     assert session.release()["status"] == "ok"
     published = {path.relative_to(session.output_dir): path.read_bytes()
                  for path in session.output_dir.rglob("*") if path.is_file()}
     previous_project = session.project.model_dump()
-    result = session.update_point("P5", y=100)
+    result = session.update_point("P5", **values)
     assert result["status"] == "error" and result["released"] is False and result["problems"]
     assert session.project.model_dump() == previous_project and not session.changes
     assert (session.output_dir / "plan.svg").is_file()
@@ -540,6 +541,31 @@ def test_point_move_and_bend_are_applied_together_and_replace_existing_angle(inp
         "status": "ok", "message": "Значения не изменились.",
     }
     assert len(session.changes) == 2
+
+
+def test_point_move_can_remove_bend_in_the_same_update(input_file, tmp_path, config):
+    import re
+    session = RouteSession(input_file, tmp_path / "output", config)
+    assert session.release()["status"] == "ok"
+    rejected = session.update_point("P5", y=100)
+    problem = next(problem for problem in rejected["problems"] if problem["where"] == "P4")
+    angle = float(re.search(r"[0-9]+,[0-9]+", problem["message"]).group().replace(",", "."))
+    moved = session.update_point("P5", y=100, bends=[{"at": "P4", "angle_deg": angle}])
+    assert moved["status"] == "ok", moved
+    restored = session.update_point("P5", y=80, bends=[{"at": "P4", "angle_deg": 0}])
+    assert restored["status"] == "ok", restored
+    assert not any(bend.at == "P4" for bend in session.project.bends)
+    assert session.calculate_route_length()["length_m"] == 360
+    assert session.release()["status"] == "ok"
+    assert "360,00" in (session.output_dir / "specification.csv").read_text(encoding="utf-8-sig")
+
+
+def test_material_conflict_example_is_rejected(input_file, tmp_path, config):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    result = session.load_route("input/examples/material_conflict.json")
+    assert result["status"] == "error" and result["released"] is False
+    assert any(problem["code"] == "material_conflict" for problem in result["problems"])
+
 
 
 def test_point_move_sets_new_and_existing_bends_in_one_call(input_file, tmp_path, config):

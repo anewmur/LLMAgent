@@ -1,6 +1,6 @@
 """Общий выбор крупнейшего масштаба, при котором вид помещается в поле листа."""
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.calculations import calculate_route_geometry
 from core.formatting import format_number, format_station, format_point_title
 from core.label_geometry import plan_label_width

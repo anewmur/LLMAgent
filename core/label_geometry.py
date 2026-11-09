@@ -2,7 +2,7 @@
 
 from math import hypot
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.tables import text_width
 
 

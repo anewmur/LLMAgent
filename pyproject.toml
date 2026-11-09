@@ -24,11 +24,14 @@ dev = ["pytest"]
 llmagent = "main:main"
 
 [tool.setuptools]
-packages = ["agent", "core", "core.checks"]
+packages = ["agent", "assets", "config", "core", "core.checks", "templates"]
 py-modules = ["main"]
 
 [tool.setuptools.package-data]
 agent = ["system_prompt.md"]
+config = ["*.yaml"]
+templates = ["*.md", "*.svg"]
+assets = ["fonts/*.ttf", "fonts/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

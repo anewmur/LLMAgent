@@ -1,6 +1,6 @@
 from enum import Enum
 
-from core.drawing_settings import FONT_SIZES
+from config.drawing_settings import FONT_SIZES
 from core.models import PipeField, PointField
 from agent.settings import (
     BEND_ANGLE_DESCRIPTION, BENDS_DESCRIPTION, EDIT_TOOL_RULES,

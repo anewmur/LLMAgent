@@ -1,6 +1,6 @@
 from collections import Counter
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.models import DocumentId
 from core.sheet import Sheet
 

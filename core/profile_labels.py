@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import re
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.label_geometry import text_bounds
 
 

@@ -1,12 +1,12 @@
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.calculations import load_project
 from core.documents import DocumentSet
 from core.label_geometry import labels_too_close
 from core.models import Project, DocumentId
-from core.paths import PROJECT_ROOT
+from config.paths import PROJECT_ROOT
 from core.profile import ProfileDrawing
 from core.profile_grid import ProfileGrid
 from core.specification import SpecificationDrawing, WIDTHS

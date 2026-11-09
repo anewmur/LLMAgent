@@ -4,8 +4,8 @@ from xml.sax.saxutils import escape
 from svglib.fonts import register_font
 from svglib.svglib import svg2rlg
 
-from core import drawing_settings as settings
-from core.paths import FONT_PATH, TEMPLATES_DIR
+from config import drawing_settings as settings
+from config.paths import FONT_PATH, TEMPLATES_DIR
 from core.formatting import render_template
 
 

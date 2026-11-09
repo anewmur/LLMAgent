@@ -1,9 +1,9 @@
 from xml.etree import ElementTree as ET
 
-from core import drawing_settings as settings
+from config import drawing_settings as settings
 from core.calculations import calculate_point_levels, calculate_route_geometry
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
-from core.paths import TEMPLATES_DIR
+from config.drawing_settings import DEFAULT_FONT_SIZE_MM
+from config.paths import TEMPLATES_DIR
 from core.profile_grid import ProfileGrid
 from core.profile_style import ProfileStyle
 from core.sheet import Sheet
