@@ -1,33 +1,35 @@
-"""Общие формулировки для листа общих данных и отчёта о проверках."""
+"""Единая загрузка полных и кратких допущений из конфигурации."""
+
+from dataclasses import dataclass
 
 from core import drawing_settings as settings
+from core.formatting import format_pipe_value
 
 
-COORDINATE_SYSTEM_NOTE = (
-    "Система координат условная, единицы — метры. Ось X направлена вправо, ось Y — вверх листа."
-)
-COORDINATE_ORIENTATION_NOTE = "Ориентация системы относительно сторон света исходными данными не задана."
-NETWORK_AND_GROUND_ASSUMPTION = (
-    f"{settings.NETWORK_CODE} назначено условно. Отметка земли принята проектной. Натурная поверхность не задана."
-)
-BEND_MATERIAL_ASSUMPTION = "Материал и SDR отводов приняты как у трубы."
-PROFILE_INSULATION_ASSUMPTION = (
-    "Для учебного профиля принято отсутствие изоляции; основание не задано."
-)
-MISSING_LEVELS_ASSUMPTION = "Пропуски отметок не интерполируются."
+@dataclass(frozen=True)
+class Assumption:
+    """Одна оговорка с идентификатором и двумя вариантами текста."""
 
-SHARED_ASSUMPTIONS = (
-    COORDINATE_SYSTEM_NOTE,
-    NETWORK_AND_GROUND_ASSUMPTION,
-    BEND_MATERIAL_ASSUMPTION,
-    PROFILE_INSULATION_ASSUMPTION,
-    MISSING_LEVELS_ASSUMPTION,
-)
+    id: str
+    full: str
+    short: str
+    key: bool = False
 
-MISSING_DATA_NOTES = (
-    "Не заданы организация, исполнители, подписи и даты в основной надписи.",
-    "Не заданы поставщик, код продукции и масса единицы в спецификации.",
-    "Не заданы натурная поверхность, основание, геология и УГВ.",
-)
-MISSING_PIPE_STANDARD_NOTE = "Не задан стандарт или ТУ на трубу; графа документа оставлена пустой."
-MISSING_BEND_STANDARD_NOTE = f"{BEND_MATERIAL_ASSUMPTION} Документ на отводы не задан."
+
+def load_assumptions(config, project, vertical_scale) -> list[Assumption]:
+    """Подставляет данные проекта в YAML-шаблоны, сохраняя их порядок."""
+    diameter = project.pipe.outer_diameter_mm
+    on_paper = diameter / vertical_scale
+    threshold = settings.PROFILE_TWO_LINE_THRESHOLD_MM
+    pipe_lines = 2 if on_paper >= threshold else 1
+    values = {
+        "network_code": settings.NETWORK_CODE,
+        "diameter": format_pipe_value(diameter), "vertical_scale": format_pipe_value(vertical_scale),
+        "on_paper": format_pipe_value(on_paper),
+        "profile_two_line_threshold_mm": format_pipe_value(threshold),
+        "comparison": "≥" if on_paper >= threshold else "<",
+        "pipe_lines": pipe_lines,
+        "pipe_lines_text": config["pipe_lines_text"][pipe_lines],
+    }
+    return [Assumption(item["id"], item["full"].format(**values), item["short"].format(**values), item.get("key", False))
+            for item in config["assumptions"]]

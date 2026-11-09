@@ -60,6 +60,7 @@ def main(argv=None):
     )
     agent = RouteAgent(client, handlers, system_prompt, model=MODEL,
                        tool_log=session.tool_log)
+    session.usage_log = agent.usage_log
     try:
         run_dialogue(agent)
     finally:

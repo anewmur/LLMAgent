@@ -51,6 +51,7 @@ def test_reference_is_clear_and_close_points_publish_and_commit_warning(input_fi
     result = session.update_point("P1", x=2)
 
     assert result["status"] == "warning", result
+    assert "assumptions" not in result
     assert session.project.points[1].x == 2
     assert len(session.changes) == 1
     assert any(message.startswith("План:") for message in result["warnings"])

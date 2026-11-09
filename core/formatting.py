@@ -3,14 +3,14 @@ from pathlib import Path
 from string import Template
 
 
-def format_number(value):
+def format_number(value, places=2):
     if value is None:
         return "—"
 
-    number = Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    number = Decimal(str(value)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
     if number == 0:
         number = abs(number)  # Чтобы не было отрицательного ноля.
-    return f"{number:.2f}".replace(".", ",")
+    return f"{number:.{places}f}".replace(".", ",")
 
 
 def format_pipe_value(value):

@@ -254,7 +254,7 @@ def test_source_warning_uses_session_tool_history(called, capsys):
     else:
         handler.assert_not_called()
         warning = "[журнал] предупреждение: источник calculate_route_length (вопрос 1) не вызывался"
-        assert first_output.strip() == second_output.strip() == warning
+        assert first_output.splitlines()[0] == second_output.splitlines()[0] == warning
         assert warnings == [{"turn": 1, "warning": warning}, {"turn": 2, "warning": warning}]
 
 

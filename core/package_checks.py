@@ -8,7 +8,7 @@ from core.checks.specification import SpecificationChecks
 
 
 class PackageChecks:
-    """Единая точка проверки готовых листов и PDF в прежнем порядке."""
+    """Единая точка проверки готовых листов и PDF."""
 
     def __init__(self, project, documents, folder):
         """Сохраняет проект, состав комплекта и папку готовых документов."""

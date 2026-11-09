@@ -5,7 +5,7 @@ from pypdf import PdfReader
 import pytest
 
 from core import calculations, release as release_module
-from core.assumptions import COORDINATE_ORIENTATION_NOTE, SHARED_ASSUMPTIONS
+from core.assumptions import load_assumptions
 from core.checks import base as checks_module
 from core.documents import DocumentSet
 from core.formatting import format_pipe_value
@@ -45,8 +45,8 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
         assert {path.relative_to(folder).as_posix() for path in folder.rglob("*") if path.is_dir()} == {"pdf"}
         report = (folder / "check_report.md").read_text(encoding="utf-8")
         assert "## Допущения" in report and "## Ограничения" in report
-        assert all(assumption in report for assumption in SHARED_ASSUMPTIONS)
-        assert COORDINATE_ORIENTATION_NOTE in report
+        items = load_assumptions(config, project, 100)
+        assert all(item.full in report for item in items)
         assert "Отводы включены в спецификацию вопреки ГОСТ 21.704 п. 7.4" in report
         assert ("Вершины трассы без колодцев показаны кружком; отдельного обозначения "
                 "ГОСТ 21.704-2011 для них не устанавливает (п. 3.6, 5.1.2).") in report
@@ -57,7 +57,7 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
             root = ET.parse(folder / (stem + ".svg")).getroot()
             if stem == "general":
                 text = " ".join(" ".join(root.itertext()).split())
-                assert all(assumption in text for assumption in SHARED_ASSUMPTIONS)
+                assert all(item.short in text for item in items if item.key)
                 notes = root.findall(".//s:g[@id='general-notes']/s:text", NS)
                 assert len(notes) == 6
                 pipe_note = " ".join(" ".join(notes[2].itertext()).split())
@@ -107,6 +107,9 @@ def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_dat
     assert profile.find(".//s:text[@data-kind='horizontal-scale']", NS).text == "М 1:4000 по горизонтали"
     assert profile.find(".//s:text[@data-kind='vertical-scale']", NS).text == "М 1:200 по вертикали"
     assert "Труба ⌀250 при 1:200 = 1,25 мм < 2 мм" in (folder / "check_report.md").read_text(encoding="utf-8")
+    items = load_assumptions(config, project, 200)
+    assert items[-1].short == "Труба ⌀250 на профиле — одной линией"
+    assert items[-1].short not in result["assumptions"]
 
 
 @pytest.mark.parametrize("case", ["missing_level", "material_conflict", "bend_conflict"])

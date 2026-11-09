@@ -5,6 +5,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from core import session as session_module
+from core.assumptions import load_assumptions
 from core.session import RouteSession
 from core.paths import PROJECT_ROOT
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
@@ -15,6 +16,52 @@ from core.settings import BEND_ANGLE_REQUIRED, LOAD_ROUTE_DATA_ERROR
 NS = {"s": "http://www.w3.org/2000/svg"}
 
 
+@pytest.mark.parametrize("status, point_x", [("ok", 60), ("warning", 2)])
+def test_release_returns_assumptions_from_report(route_data, write_route, tmp_path, config, status, point_x):
+    route_data["points"][1]["x"] = point_x
+    if status == "warning":
+        config["assumptions"].reverse()
+    session = RouteSession(write_route(route_data), tmp_path / "output", config)
+
+    result = session.release()
+
+    assert result["status"] == status, result
+    report = (session.output_dir / "check_report.md").read_text(encoding="utf-8")
+    section = report.split("## Допущения\n\n", 1)[1].split("\n\n## Ограничения", 1)[0]
+    lines = section.strip().splitlines()
+    assert lines and all(line.startswith("- ") for line in lines)
+    items = load_assumptions(config, session.project, 100)
+    assert [line.removeprefix("- ") for line in lines] == [item.full for item in items]
+    key_items = [item for item in items if item.key]
+    assert {item.id for item in key_items} == {
+        "coordinate_system", "network_ground", "bend_material", "profile_insulation", "missing_levels", "pipe_quantity",
+    }
+    assert result["assumptions"] == [item.short for item in key_items]
+    root = ET.parse(session.output_dir / "general.svg").getroot()
+    blocks = root.findall(".//s:g[@data-assumption-id]", NS)
+    assert [block.get("data-assumption-id") for block in blocks] == [item.id for item in key_items]
+    short_texts = [" ".join(" ".join(block.itertext()).split()) for block in blocks]
+    assert short_texts == result["assumptions"]
+    assert len(lines) == len(items) == 27
+    assert len(blocks) == len(result["assumptions"]) == 6
+    assert config["assumptions_footer"] in " ".join(root.itertext())
+
+
+@pytest.mark.parametrize("failure", ["invalid_data", "drawing_does_not_fit"])
+def test_failed_release_has_no_assumptions(route_data, write_route, tmp_path, config, failure):
+    if failure == "invalid_data":
+        route_data["points"][3]["axis"] = None
+    else:
+        route_data["points"][-1]["x"] = 800
+    session = RouteSession(write_route(route_data), tmp_path / "output", config)
+
+    result = session.release()
+
+    assert result["status"] == "error", result
+    assert "assumptions" not in result
+    assert not session.output_dir.exists()
+
+
 def test_session_updates_380_accumulates_history_and_restarts(input_file, tmp_path, config):
     original = input_file.read_bytes()
     folder = tmp_path / "output"
@@ -23,6 +70,7 @@ def test_session_updates_380_accumulates_history_and_restarts(input_file, tmp_pa
     assert not (folder / "changes.md").exists()
     result = session.update_point("P5", x=300)
     assert result["status"] == "ok", result
+    assert "assumptions" not in result
     assert session.project.points[-1].x == 300
     assert session.calculate_route_length()["length_m"] == 380
     assert session.calculate_material_quantities()["pipe"]["quantity_m"] == 380

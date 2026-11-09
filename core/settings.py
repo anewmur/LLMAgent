@@ -11,6 +11,7 @@ TOOL_LOG_FILENAME = "tool_log.md"
 CHANGES_FILENAME = "changes.md"
 # Подпись строки предупреждения в таблице журнала инструментов.
 LOG_WARNING_LABEL = "Предупреждение"
+USAGE_LOG_HEADING = "## Время, токены и стоимость API"
 
 # Каталог доступных агенту трасс; путь к нему определяется от корня проекта.
 INPUT_DIR = PROJECT_ROOT / "input"

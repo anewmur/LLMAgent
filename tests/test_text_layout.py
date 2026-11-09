@@ -1,6 +1,7 @@
 from xml.etree import ElementTree as ET
 import re
 
+from core.assumptions import load_assumptions
 from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.general import GeneralData
@@ -40,7 +41,7 @@ def assert_inside_columns(boxes, boundaries):
 
 def test_general_text_stays_inside_columns_and_frame(route_data, config):
     project = Project.model_validate(route_data)
-    root = ET.fromstring(GeneralData(project, DocumentSet(project, config), config).render())
+    root = ET.fromstring(GeneralData(project, DocumentSet(project, config), config, load_assumptions(config, project, 100)).render())
     frame = root.find("s:g/s:rect[@id='frame']", NS)
     frame_left = float(frame.get("x"))
     frame_right = frame_left + float(frame.get("width"))

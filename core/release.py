@@ -6,6 +6,7 @@ import shutil
 from pypdf import PdfReader, PdfWriter
 
 from core.check_report import CheckReport
+from core.assumptions import load_assumptions
 from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.formatting import format_change_value
@@ -36,16 +37,16 @@ class PackageRelease:
         (folder / f"{document_id}.svg").write_text(drawing.render(), encoding="utf-8")
 
     def build_svg(self, folder):
-        general = GeneralData(self.project, self.documents, self.config)
+        profile = ProfileDrawing(self.project, self.documents.get(DocumentId.PROFILE), self.font_size)
+        self.assumptions = load_assumptions(self.config, self.project, profile.vertical_scale)
+        general = GeneralData(self.project, self.documents, self.config, self.assumptions)
         (folder / f"{DocumentId.GENERAL}.svg").write_text(general.render(), encoding="utf-8")
         plan = PlanDrawing(self.project, self.documents.get(DocumentId.PLAN))
         self.save_drawing(folder, plan, DocumentId.PLAN)
-        profile = ProfileDrawing(self.project, self.documents.get(DocumentId.PROFILE), self.font_size)
         self.save_drawing(folder, profile, DocumentId.PROFILE)
         specification = SpecificationDrawing(self.project, self.documents.get(DocumentId.SPECIFICATION))
         self.save_drawing(folder, specification, DocumentId.SPECIFICATION)
         specification.write_csv(folder / f"{DocumentId.SPECIFICATION}.csv")
-        return profile.vertical_scale
 
     def merge_pdf(self, folder, name, stems):
         writer = PdfWriter()
@@ -88,15 +89,17 @@ class PackageRelease:
         try:
             with TemporaryDirectory(prefix="llmagent-release-") as temp:
                 folder = Path(temp)
-                vertical_scale = self.build_svg(folder)
+                self.build_svg(folder)
                 self.build_pdf(folder)
                 checks = PackageChecks(self.project, self.documents, folder).run()
-                status = CheckReport(self.project, self.config, checks, vertical_scale).write(folder)
+                report = CheckReport(self.project, self.config, checks, self.assumptions)
+                status = report.write(folder)
                 if status == Status.ERROR:
                     raise ValueError(CheckReport.failure_message(checks))
                 self.write_changes(folder)
                 self.publish(folder)
             return {"status": status, "folder": str(self.output_dir), "checks": checks,
+                    "assumptions": [item.short for item in self.assumptions if item.key],
                     "pdf": str(self.output_dir / "pdf" / "package.pdf"),
                     "report": str(self.output_dir / "check_report.md")}
         except (OSError, ValueError, TypeError, KeyError) as error:

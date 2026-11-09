@@ -23,6 +23,7 @@ from core.settings import (
     UPDATE_REJECTED_MESSAGE, BEND_NOT_FOUND, BEND_ANGLE_REQUIRED,
     TITLE_ADD_POINT, TITLE_REMOVE_POINT, TITLE_ADD_BEND, TITLE_REMOVE_BEND,
     LABEL_POINT_VALUE, LABEL_BEND_ANGLE,
+    USAGE_LOG_HEADING,
 )
 from core.validate import validate_input
 
@@ -54,6 +55,7 @@ class RouteSession:
         self.documents = DocumentSet(self.project, self.config)
         self.output_dir = Path(output_dir)
         self.changes, self.tool_log = [], []
+        self.usage_log = []
         self.font_size = DEFAULT_FONT_SIZE_MM
 
     def save_tool_log(self):
@@ -66,7 +68,9 @@ class RouteSession:
                 cells = (entry["turn"], entry["tool"], entry["arguments"], entry["result"].get("status", Status.OK))
             cells = [str(value).replace("|", "\\|").replace("\r", "").replace("\n", "<br>") for value in cells]
             rows.append("| " + " | ".join(cells) + " |")
-        text = render_template(TEMPLATES_DIR / TOOL_LOG_FILENAME, {"rows": "\n".join(rows)})
+        summaries = [entry["summary"] for entry in self.usage_log]
+        usage = "\n\n".join([USAGE_LOG_HEADING, *summaries, self.usage_log[-1]["session_summary"]]) if self.usage_log else ""
+        text = render_template(TEMPLATES_DIR / TOOL_LOG_FILENAME, {"rows": "\n".join(rows), "usage": usage})
         self.output_dir.mkdir(parents=True, exist_ok=True)
         (self.output_dir / TOOL_LOG_FILENAME).write_text(text, encoding="utf-8")
 
@@ -99,6 +103,7 @@ class RouteSession:
         return self.problem_response(Status.OK, self.problems, **calculate_material_quantities(self.project))
 
     def release(self):
+        """Возвращает результат выпуска, включая проверки и допущения отчёта."""
         if self.has_errors(self.project, self.problems):
             return self.problem_response(Status.ERROR, self.problems, message=INPUT_INVALID)
         result = create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)

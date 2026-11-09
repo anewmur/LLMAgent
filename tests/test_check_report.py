@@ -1,4 +1,4 @@
-from core.assumptions import MISSING_PIPE_STANDARD_NOTE
+from core.assumptions import load_assumptions
 from core.check_report import CheckReport, check_status
 from core.models import CheckResult, Project, Status
 
@@ -18,7 +18,7 @@ def test_report_uses_supplied_scale_without_svg(route_data, config, tmp_path):
     project = Project.model_validate(route_data)
     report = CheckReport(project, config, [
         CheckResult("profile_point_spacing", Status.WARNING, "Тесные подписи"),
-    ], vertical_scale=200)
+    ], load_assumptions(config, project, 200))
 
     assert report.write(tmp_path) == "warning"
 
@@ -27,6 +27,17 @@ def test_report_uses_supplied_scale_without_svg(route_data, config, tmp_path):
     assert "Труба ⌀110 при 1:200 = 0,55 мм < 2 мм" in text
     assert "| profile_point_spacing | Предупреждение | Тесные подписи |" in text
     assert "Замечания к исходным данным" not in text
-    assert MISSING_PIPE_STANDARD_NOTE in text
+    assert config["missing_data"]["pipe_standard"] in text
     project.pipe.standard = "ТУ TEST"
-    assert MISSING_PIPE_STANDARD_NOTE not in report.missing_data()
+    assert config["missing_data"]["pipe_standard"] not in report.missing_data()
+
+
+def test_pipe_note_uses_explicit_scale_and_line_wording(route_data, config):
+    route_data["pipe"].update(outer_diameter_mm=250, wall_mm=14.8)
+    project = Project.model_validate(route_data)
+    for scale, wording in [(100, "двумя линиями"), (200, "одной линией")]:
+        items = load_assumptions(config, project, scale)
+        note = next(item for item in items if item.id == "pipe_note")
+        assert note.short == f"Труба ⌀250 на профиле — {wording}"
+        assert not note.key
+        assert "slope_direction" not in [item.id for item in items]

@@ -1,11 +1,6 @@
+from xml.sax.saxutils import quoteattr
+
 from core import drawing_settings as settings
-from core.assumptions import (
-    BEND_MATERIAL_ASSUMPTION,
-    COORDINATE_SYSTEM_NOTE,
-    MISSING_LEVELS_ASSUMPTION,
-    NETWORK_AND_GROUND_ASSUMPTION,
-    PROFILE_INSULATION_ASSUMPTION,
-)
 from core.calculations import calculate_route_geometry
 from core.formatting import format_number, format_pipe_value
 from core.models import DocumentId
@@ -19,23 +14,15 @@ TEMPLATE_PATH = TEMPLATES_DIR / "general.svg"
 REGISTER_HEADERS = ("Обозначение", "Наименование", "Примечание")
 DRAWING_REGISTER_HEADERS = ("Лист", "Наименование", "Примечание")
 NETWORK_NAME = "Наружные сети водоснабжения"
-GENERAL_NOTES = (
-    "Основанием для разработки является задание на проектирование.",
-    COORDINATE_SYSTEM_NOTE,
-    "Проектируемая сеть {network_code} — подземный напорный водопровод из труб {pipe}. Длина трассы — {length} м.",
-    "Длина трубы в спецификации принята по оси трассы без запаса.",
-    "В исходных данных заданы отметки оси трубопровода; на профиле показаны отметки низа трубы "
-    "(ось минус половина наружного диаметра). Труба показана сплошной толстой линией.",
-    "Принятые допущения и ограничения приведены в отчёте о проверках.",
-)
 
 
 class GeneralData:
     """Общие данные и ведомости из фактического состава выпуска."""
 
-    def __init__(self, project, documents, config):
+    def __init__(self, project, documents, config, assumptions):
         """Сохраняет проект, состав документов и настройки общих данных."""
         self.project, self.documents, self.config = project, documents, config
+        self.items = assumptions
 
     def drawing_register(self):
         """Возвращает ведомость листов основного комплекта."""
@@ -74,13 +61,33 @@ class GeneralData:
         pipe_description = (f"{pipe.material} SDR {format_pipe_value(pipe.sdr)} "
                             f"{format_pipe_value(pipe.outer_diameter_mm)}×{format_pipe_value(pipe.wall_mm)}")
         length = calculate_route_geometry(self.project.points)["length_m"]
-        return [note.format(network_code=settings.NETWORK_CODE, pipe=pipe_description, length=format_number(length)) for note in GENERAL_NOTES]
+        values = {item.id: item.full for item in self.items}
+        values.update(network_code=settings.NETWORK_CODE, pipe=pipe_description, length=format_number(length))
+        return [note.format(**values) for note in self.config["general_notes"]]
 
     def assumptions(self):
-        """Возвращает краткие допущения из общих с отчётом формулировок."""
-        return [NETWORK_AND_GROUND_ASSUMPTION,
-                f"{BEND_MATERIAL_ASSUMPTION} {PROFILE_INSULATION_ASSUMPTION}",
-                f"{MISSING_LEVELS_ASSUMPTION} Полный перечень оговорок дан в отчёте о проверках."]
+        """Возвращает краткие формулировки в порядке конфигурации."""
+        return [item.short for item in self.items if item.key]
+
+    def draw_assumptions(self):
+        """Выводит ключевые допущения справа и ссылку на полный перечень."""
+        elements = []
+        top = settings.GENERAL_ASSUMPTIONS_TOP_MM
+        for item in self.items:
+            if not item.key:
+                continue
+            block = TextBlock(item.short, settings.GENERAL_ASSUMPTIONS_LEFT_MM, top,
+                              settings.GENERAL_ASSUMPTIONS_WIDTH_MM)
+            elements.append(render_template(TEMPLATES_DIR / "assumption.svg", {
+                "id": quoteattr(item.id), "body": block.render(),
+            }))
+            top += len(block.lines) * settings.TEXT_LINE_STEP_MM + settings.GENERAL_PARAGRAPH_GAP_MM
+        footer = TextBlock(self.config["assumptions_footer"], settings.GENERAL_ASSUMPTIONS_LEFT_MM,
+                           top, settings.GENERAL_ASSUMPTIONS_WIDTH_MM)
+        if top + (len(footer.lines) - 1) * settings.TEXT_LINE_STEP_MM > settings.GENERAL_TEXT_BOTTOM_MM:
+            raise ValueError("Допущения не помещаются на листе общих данных.")
+        elements.append(footer.render())
+        return "\n".join(elements)
 
     def body(self):
         """Возвращает SVG ведомостей, указаний и допущений по шаблону."""
@@ -93,9 +100,7 @@ class GeneralData:
             "notes": self.paragraphs(self.notes(), settings.GENERAL_NOTES_LEFT_MM,
                                   settings.GENERAL_NOTES_TOP_MM, settings.GENERAL_NOTES_WIDTH_MM,
                                   settings.GENERAL_TEXT_BOTTOM_MM),
-            "assumptions": self.paragraphs(self.assumptions(), settings.GENERAL_ASSUMPTIONS_LEFT_MM,
-                                        settings.GENERAL_ASSUMPTIONS_TOP_MM, settings.GENERAL_ASSUMPTIONS_WIDTH_MM,
-                                        settings.GENERAL_TEXT_BOTTOM_MM),
+            "assumptions": self.draw_assumptions(),
         })
 
     def render(self):

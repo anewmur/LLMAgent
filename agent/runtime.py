@@ -1,12 +1,15 @@
 import json
 import re
+from time import perf_counter
 
 from agent.settings import (
     EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY,
     ROUND_LIMIT_RESPONSE, SOURCE_PATTERN, SOURCE_SEPARATOR,
     SOURCE_WARNING_TEMPLATE, TOOL_LOG_TEMPLATE, TURN_CONTEXT_TEMPLATE,
+    USAGE_LOG_TEMPLATE, SESSION_USAGE_TEMPLATE, PRICE_NOTE,
 )
 from agent.tools import TOOLS
+from agent.usage import TokenUsage, utc_now
 from core.models import Status
 
 
@@ -19,19 +22,43 @@ class RouteAgent:
         self.client, self.handlers = client, handlers
         self.model, self.max_rounds = model, max_rounds
         self.tool_log = [] if tool_log is None else tool_log
+        self.usage_log = []
         self.turn = 0
+        self.question_usage, self.session_usage = TokenUsage(), TokenUsage()
+        self.session_elapsed = 0.0
         self.messages = [{"role": "system", "content": system_prompt}]
 
     def ask(self, question) -> str:
         """Добавляет вопрос в историю и возвращает ответ после вызовов инструментов."""
+        started = perf_counter()
         self.turn += 1
+        self.question_usage = TokenUsage()
         self.messages.append({"role": "system", "content": TURN_CONTEXT_TEMPLATE.format(turn=self.turn)})
         self.messages.append({"role": "user", "content": question})
+        try:
+            return self.answer()
+        finally:
+            self.log_usage(perf_counter() - started)
+
+    def log_usage(self, elapsed):
+        """Печатает итог вопроса и сохраняет его вместе с накопленным итогом сессии."""
+        self.session_elapsed += elapsed
+        summary = self.question_usage.summary(USAGE_LOG_TEMPLATE, elapsed, turn=self.turn)
+        total = self.session_usage.summary(SESSION_USAGE_TEMPLATE, self.session_elapsed)
+        self.usage_log.append({"turn": self.turn, "summary": summary, "session_summary": total + "\n\n" + PRICE_NOTE})
+        print(summary)
+
+    def answer(self):
+        """Получает ответ модели, выполняя инструменты и учитывая каждый ответ API."""
         for _ in range(self.max_rounds):
             response = self.client.chat.completions.create(
                 model=self.model, messages=self.messages, tools=TOOLS,
                 extra_body=MODEL_EXTRA_BODY,
             )
+            usage = getattr(response, "usage", None)
+            timestamp = utc_now()
+            self.question_usage.add(usage, timestamp)
+            self.session_usage.add(usage, timestamp)
             first_choice = response.choices[0]
             message = first_choice.message
             self.messages.append(message.model_dump(exclude_none=True))
