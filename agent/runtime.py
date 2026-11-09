@@ -14,11 +14,12 @@ class RouteAgent:
     """Диалог о трассе с историей сообщений, вызовами инструментов и журналом."""
 
     def __init__(self, client, handlers, system_prompt, model=MODEL,
-                 max_rounds=MAX_TOOL_ROUNDS, tool_log=None):
+                 max_rounds=MAX_TOOL_ROUNDS, tool_log=None, save_tool_log=None):
         """Сохраняет клиент, инструменты и настройки, начинает историю системным промптом."""
         self.client, self.handlers = client, handlers
         self.model, self.max_rounds = model, max_rounds
         self.tool_log = [] if tool_log is None else tool_log
+        self.save_tool_log = save_tool_log
         self.turn = 0
         self.messages = [{"role": "system", "content": system_prompt}]
 
@@ -58,6 +59,8 @@ class RouteAgent:
                               "arguments": call.function.arguments, "result": result})
         print(TOOL_LOG_TEMPLATE.format(turn=self.turn, tool=call.function.name,
                                        arguments=call.function.arguments, status=result.get("status", Status.OK)))
+        if self.save_tool_log is not None:
+            self.save_tool_log()
         self.messages.append({
             "role": "tool", "tool_call_id": call.id,
             "content": json.dumps(result, ensure_ascii=False),
@@ -71,3 +74,5 @@ class RouteAgent:
                 warning = SOURCE_WARNING_TEMPLATE.format(source=source, turn=source_turn)
                 print(warning)
                 self.tool_log.append({"turn": self.turn, "warning": warning})
+                if self.save_tool_log is not None:
+                    self.save_tool_log()

@@ -9,6 +9,8 @@ from core.calculations import (
     load_project,
 )
 from core.documents import DocumentSet
+from core.formatting import render_template
+from core.paths import TEMPLATES_DIR
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import (
     Change, ChangeSet, DocumentId, Level, PipeField, PointField,
@@ -45,6 +47,20 @@ class RouteSession:
         self.changes, self.tool_log = [], []
         self.font_size = DEFAULT_FONT_SIZE_MM
 
+    def save_tool_log(self):
+        """Сохраняет журнал текущей сессии в Markdown, заменяя прежний файл."""
+        rows = []
+        for entry in self.tool_log:
+            if "warning" in entry:
+                cells = (entry["turn"], "Предупреждение", entry["warning"], Status.WARNING)
+            else:
+                cells = (entry["turn"], entry["tool"], entry["arguments"], entry["result"].get("status", Status.OK))
+            cells = [str(value).replace("|", "\\|").replace("\r", "").replace("\n", "<br>") for value in cells]
+            rows.append("| " + " | ".join(cells) + " |")
+        text = render_template(TEMPLATES_DIR / "tool_log.md", {"rows": "\n".join(rows)})
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "tool_log.md").write_text(text, encoding="utf-8")
+
     @staticmethod
     def problem_response(status, problems, **extra):
         """Собирает ответ инструмента с прежним форматом списка проблем."""
@@ -77,6 +93,8 @@ class RouteSession:
         result = create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)
         if "checks" in result:
             result["checks"] = [check.to_dict() for check in result["checks"]]
+        if result["status"] != Status.ERROR:
+            self.save_tool_log()
         return result
 
     @staticmethod
@@ -116,6 +134,7 @@ class RouteSession:
         self.project, self.font_size = project, font_size
         self.problems = []
         self.changes.append(change)
+        self.save_tool_log()
         response = {"status": result["status"], "changes": asdict(change), "pdf": result["pdf"]}
         if result["status"] == Status.WARNING:
             response["warnings"] = [check.message for check in result.get("checks", [])

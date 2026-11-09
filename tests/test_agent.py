@@ -63,7 +63,10 @@ def test_repeated_tool_calls_are_bounded(max_rounds):
     assert "превышено" in text and agent.messages[-1] == {"role": "assistant", "content": text}
 
 
-def test_terminal_accepts_multiple_questions(monkeypatch, config):
+@pytest.mark.parametrize("input_name, exit_signal", [
+    (None, None), ("input/examples/route_2.json", None), (None, EOFError), (None, KeyboardInterrupt),
+])
+def test_terminal_accepts_multiple_questions(monkeypatch, config, input_name, exit_signal):
     import main
     session = Mock()
     session.release.return_value = {"status": "ok"}
@@ -77,24 +80,27 @@ def test_terminal_accepts_multiple_questions(monkeypatch, config):
     client = Mock()
     client_factory = Mock(return_value=client)
     monkeypatch.setattr(main, "OpenAI", client_factory)
-    questions = iter(["", "Длина?", "А уклон?", "выход"])
-    monkeypatch.setattr("builtins.input", lambda prompt: next(questions))
+    exit_value = "выход" if exit_signal is None else exit_signal()
+    monkeypatch.setattr("builtins.input", Mock(side_effect=["", "Длина?", "А уклон?", exit_value]))
     agent = Mock()
     agent.ask.return_value = "Ответ"
     agent_factory = Mock(return_value=agent)
     monkeypatch.setattr(main, "RouteAgent", agent_factory)
-    main.main()
+    main.main([] if input_name is None else [input_name])
     assert [call.args[0] for call in agent.ask.call_args_list] == ["Длина?", "А уклон?"]
     agent_factory.assert_called_once()
     arguments = agent_factory.call_args
     assert arguments.args[0] is client
     assert set(arguments.args[1]) == set(ToolName)
     assert arguments.args[2] == main.SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-    assert arguments.kwargs == {"model": MODEL, "tool_log": session.tool_log}
+    assert arguments.kwargs == {"model": MODEL, "tool_log": session.tool_log,
+                                "save_tool_log": session.save_tool_log}
     client_factory.assert_called_once_with(api_key="test-key", base_url=BASE_URL)
     session.release.assert_called_once_with()
     config_loader.assert_called_once_with()
-    session_factory.assert_called_once_with(main.INPUT_PATH, main.OUTPUT_DIR, config)
+    expected_input = main.INPUT_PATH if input_name is None else main.Path(input_name)
+    session_factory.assert_called_once_with(expected_input, main.OUTPUT_DIR, config)
+    session.save_tool_log.assert_called_once_with()
 
 
 def test_tools_update_current_session(input_file, tmp_path, config):
@@ -199,7 +205,8 @@ def test_pipe_tool_updates_session_and_returns_changes(input_file, tmp_path, con
         response(content="Изменения: ПЭ 100 → ПЭ 80; SDR 17 → 11; диаметр 110 → 160 мм; стенка 6,6 → 14,6 мм."),
     ]
     agent = RouteAgent(client, {ToolName.UPDATE_PIPE: session.update_pipe},
-                       SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log)
+                       SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log,
+                       save_tool_log=session.save_tool_log)
 
     text = agent.ask("Замени трубу на ПЭ 80 SDR 11, наружный диаметр 160 мм, стенка 14,6 мм")
 
@@ -217,6 +224,8 @@ def test_pipe_tool_updates_session_and_returns_changes(input_file, tmp_path, con
     assert session.project.pipe.outer_diameter_mm == 160 and session.project.pipe.wall_mm == 14.6
     assert session.project.pipe.sdr == 11
     assert session.tool_log[0]["tool"] == "update_pipe" and session.tool_log[0]["result"] == result
+    journal = (folder / "tool_log.md").read_text(encoding="utf-8")
+    assert '| 1 | update_pipe |' in journal and '"outer_diameter": 160' in journal
     assert text.startswith("Изменения:") and "ПЭ 100 → ПЭ 80" in text
     assert (folder / "pdf/package.pdf").is_file()
     assert "Материал трубы: **ПЭ 100 → ПЭ 80**." in (folder / "changes.md").read_text(encoding="utf-8")
@@ -231,7 +240,8 @@ def test_source_warning_uses_session_tool_history(called, capsys):
     client = Mock()
     replies = [response(tool_name=name)] if called else []
     client.chat.completions.create.side_effect = replies + [response(content=text), response(content=text)]
-    agent = RouteAgent(client, {name: handler}, "Помощник")
+    save_log = Mock()
+    agent = RouteAgent(client, {name: handler}, "Помощник", save_tool_log=save_log)
 
     assert agent.ask("Длина?") == text
     first_output = capsys.readouterr().out
@@ -240,6 +250,7 @@ def test_source_warning_uses_session_tool_history(called, capsys):
     assert agent.turn == 2
     assert agent.messages[1] == {"role": "system", "content": "Текущий вопрос: 1."}
     warnings = [entry for entry in agent.tool_log if "warning" in entry]
+    assert save_log.call_count == (1 if called else 2)
     if called:
         handler.assert_called_once_with()
         assert "[журнал] вопрос 1: calculate_route_length({}) -> ok" in first_output

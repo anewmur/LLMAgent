@@ -1,4 +1,6 @@
 import os
+from argparse import ArgumentParser
+from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import APIError, OpenAI
@@ -22,10 +24,13 @@ def load_config():
     return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
-def main():
+def main(argv=None):
+    parser = ArgumentParser(description="Диалог о трассе и выпуск комплекта документов.")
+    parser.add_argument("input_file", nargs="?", type=Path, default=INPUT_PATH, help="Путь к JSON трассы.")
+    arguments = parser.parse_args(argv)
     config = load_config()
     system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-    session = RouteSession(INPUT_PATH, OUTPUT_DIR, config)
+    session = RouteSession(arguments.input_file, OUTPUT_DIR, config)
     initial = session.release()
     if initial["status"] == Status.ERROR:
         print("Начальный выпуск не выполнен:", initial.get("problems") or initial.get("message"))
@@ -43,7 +48,16 @@ def main():
         api_key=os.environ["DEEPSEEK_API_KEY"],
         base_url=BASE_URL,
     )
-    agent = RouteAgent(client, handlers, system_prompt, model=MODEL, tool_log=session.tool_log)
+    agent = RouteAgent(client, handlers, system_prompt, model=MODEL,
+                       tool_log=session.tool_log, save_tool_log=session.save_tool_log)
+    try:
+        run_dialogue(agent)
+    finally:
+        session.save_tool_log()
+
+
+def run_dialogue(agent):
+    """Читает вопросы до выхода, сохраняя диалог в одном экземпляре агента."""
     print("Задайте вопрос о трассе. Для завершения введите «выход».")
 
     while True:

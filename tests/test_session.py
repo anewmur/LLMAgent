@@ -6,6 +6,7 @@ import pytest
 
 from core import session as session_module
 from core.session import RouteSession
+from core.paths import PROJECT_ROOT
 
 
 NS = {"s": "http://www.w3.org/2000/svg"}
@@ -217,3 +218,46 @@ def test_sdr_mismatch_keeps_project_history_and_output(input_file, route_data, t
     assert not session.changes
     assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
     export.assert_not_called()
+
+
+def test_second_route_releases_250_metres_and_updates_without_changing_source(tmp_path, config):
+    input_file = PROJECT_ROOT / "input" / "examples" / "route_2.json"
+    original = input_file.read_bytes()
+    folder = tmp_path / "output"
+    session = RouteSession(input_file, folder, config)
+
+    geometry = session.calculate_route_length()
+    assert geometry["length_m"] == 50 + 70 + 50 + 80 == 250
+    assert [section["length_m"] for section in geometry["sections"]] == [50, 70, 50, 80]
+    assert len(session.project.points) == 5 and len(session.project.bends) == 1
+    assert session.project.bends[0].angle_deg == 90
+    released = session.release()
+    assert released["status"] == "ok", released
+    assert (folder / "pdf/package.pdf").is_file() and (folder / "tool_log.md").is_file()
+
+    updated = session.update_point("P4", y=90)
+    assert updated["status"] == "ok", updated
+    assert session.calculate_route_length()["length_m"] == 50 + 70 + 50 + 90 == 260
+    assert "250,00 → 260,00 м" in (folder / "changes.md").read_text(encoding="utf-8")
+    assert input_file.read_bytes() == original
+
+
+def test_tool_journal_escapes_cells_and_new_session_starts_empty(input_file, tmp_path, config):
+    folder = tmp_path / "output"
+    session = RouteSession(input_file, folder, config)
+    session.tool_log.extend([
+        {"turn": 1, "tool": "update_pipe", "arguments": '{"material": "А|Б"}\n', "result": {"status": "error"}},
+        {"turn": 2, "warning": "Источник не вызывался | проверка"},
+    ])
+
+    assert session.release()["status"] == "ok"
+    journal = (folder / "tool_log.md").read_text(encoding="utf-8")
+    assert "| Вопрос | Инструмент | Аргументы | Статус |" in journal
+    assert '| 1 | update_pipe | {"material": "А\\|Б"}<br> | error |' in journal
+    assert "| 2 | Предупреждение | Источник не вызывался \\| проверка | warning |" in journal
+
+    fresh = RouteSession(input_file, folder, config)
+    assert fresh.release()["status"] == "ok"
+    assert fresh.tool_log == []
+    journal = (folder / "tool_log.md").read_text(encoding="utf-8")
+    assert "update_pipe" not in journal and "Источник не вызывался" not in journal
