@@ -1,5 +1,6 @@
 import math
 
+from core import drawing_settings as settings
 from core.checks.base import BaseChecks, NS
 from core.formatting import format_number, format_station
 from core.models import DocumentId, Level
@@ -25,10 +26,12 @@ class PlanChecks(BaseChecks):
         for index in range(len(self.project.points) - 1):
             start_coordinate, end_coordinate = coordinates[index:index+2]
             start, end = self.project.points[index:index+2]
-            if not math.isclose(end_coordinate[0]-start_coordinate[0], (end.x-start.x) * mm_per_meter, abs_tol=1e-7):
+            if not math.isclose(end_coordinate[0]-start_coordinate[0], (end.x-start.x) * mm_per_meter,
+                                abs_tol=settings.GEOMETRY_TOLERANCE_MM):
                 self.add("plan_geometry", False, "Неверное направление или расстояние по X на плане.")
                 return
-            if not math.isclose(end_coordinate[1]-start_coordinate[1], (start.y-end.y) * mm_per_meter, abs_tol=1e-7):
+            if not math.isclose(end_coordinate[1]-start_coordinate[1], (start.y-end.y) * mm_per_meter,
+                                abs_tol=settings.GEOMETRY_TOLERANCE_MM):
                 self.add("plan_geometry", False, "Неверное направление или расстояние по Y на плане.")
                 return
         self.add("plan_geometry", True, f"Геометрия плана соответствует координатам и масштабу 1:{scale:g}.")
@@ -107,7 +110,7 @@ class PlanChecks(BaseChecks):
             (start[1], end[1], bounds[1], bounds[3]),
         ]:
             direction = finish - origin
-            if abs(direction) < 1e-7:
+            if abs(direction) < settings.GEOMETRY_TOLERANCE_MM:
                 if not minimum < origin < maximum:
                     return False
             else:

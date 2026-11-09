@@ -61,7 +61,8 @@ class ProfileChecks(BaseChecks):
         if tokens[::2] != commands or len(actual) != len(expected):
             self.add(line_id, False, "Неверное число точек или разрывы линии профиля.")
             return
-        if not all(math.dist(actual_point, expected_point) < 1e-7 for actual_point, expected_point in zip(actual, expected)):
+        if not all(math.dist(actual_point, expected_point) < settings.GEOMETRY_TOLERANCE_MM
+                   for actual_point, expected_point in zip(actual, expected)):
             self.add(line_id, False, "Положение линии профиля не совпадает с отметками и пикетами.")
             return
         self.add(line_id, True, "Линия профиля соответствует отметкам; пропуски не соединены.")

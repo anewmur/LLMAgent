@@ -37,6 +37,16 @@ class PlanDrawing:
         self.bends = {bend.at: bend for bend in project.bends}
         self.bend_names = project.bend_names()
 
+    @property
+    def field_width(self):
+        """Возвращает ширину свободного поля в мм листа."""
+        return self.sheet.width - settings.PLAN_FIELD_HORIZONTAL_MARGINS_MM
+
+    @property
+    def field_right(self):
+        """Возвращает правую границу свободного поля в мм листа."""
+        return settings.PLAN_FIELD_LEFT_MM + self.field_width
+
     def place_points(self):
         """Возвращает координаты точек в мм листа, центрируя трассу в свободном поле."""
         min_x = min(point.x for point in self.project.points)
@@ -46,14 +56,13 @@ class PlanDrawing:
         width = (max_x - min_x) * self.mm_per_meter
         height = (max_y - min_y) * self.mm_per_meter
 
-        available_width = self.sheet.width - settings.PLAN_FIELD_HORIZONTAL_MARGINS_MM
-        if width > available_width or height > settings.PLAN_FIELD_HEIGHT_MM:
+        if width > self.field_width or height > settings.PLAN_FIELD_HEIGHT_MM:
             raise ValueError(
                 f"Трасса не помещается на A3 при масштабе 1:{self.scale}. "
                 "Требуется другой формат или масштаб."
             )
 
-        left = settings.PLAN_FIELD_LEFT_MM + (available_width - width) / 2
+        left = settings.PLAN_FIELD_LEFT_MM + (self.field_width - width) / 2
         top = settings.PLAN_FIELD_TOP_MM + (settings.PLAN_FIELD_HEIGHT_MM - height) / 2
         coordinates = []
         for point in self.project.points:
@@ -96,8 +105,7 @@ class PlanDrawing:
 
     def field_center_x(self):
         """Возвращает абсциссу центра свободного поля в мм листа."""
-        field_width = self.sheet.width - settings.PLAN_FIELD_HORIZONTAL_MARGINS_MM
-        return settings.PLAN_FIELD_LEFT_MM + field_width / 2
+        return settings.PLAN_FIELD_LEFT_MM + self.field_width / 2
 
     def point_label_position(self, index):
         """Возвращает абсциссу подписи в мм листа и её SVG-выравнивание."""
@@ -127,18 +135,20 @@ class PlanDrawing:
         values.update(self.point_label_layout(index, values))
         return render_template(POINT_LABEL_PATH, values)
 
-    def point_label_layout(self, index, values):
-        """Возвращает общее положение строк, удерживая весь блок в поле чертежа."""
+    @staticmethod
+    def label_width(values):
+        """Возвращает приближённую ширину блока подписей в мм листа."""
         width = max(len(unescape(values["title"])) * settings.PLAN_FONT_SIZE_MM,
                     len(values["station"]) * settings.PLAN_FONT_SIZE_MM,
                     len(values["coordinates"]) * settings.PLAN_COORDINATE_FONT_SIZE_MM)
-        width *= settings.TEXT_CHARACTER_WIDTH_FACTOR
-        field_right = self.sheet.width - settings.PLAN_FIELD_HORIZONTAL_MARGINS_MM + settings.PLAN_FIELD_LEFT_MM
-        if width > field_right - settings.PLAN_FIELD_LEFT_MM:
-            raise ValueError(f"Блок подписей точки {self.project.points[index].id} не помещается на A3.")
+        return width * settings.TEXT_CHARACTER_WIDTH_FACTOR
+
+    def point_label_layout(self, index, values):
+        """Возвращает общее положение строк, сдвигая блок внутрь поля чертежа."""
+        width = self.label_width(values)
         initial_x, anchor = self.point_label_position(index)
         left = initial_x - width if anchor == "end" else initial_x
-        left = max(settings.PLAN_FIELD_LEFT_MM, min(left, field_right - width))
+        left = max(settings.PLAN_FIELD_LEFT_MM, min(left, self.field_right - width))
         label_x = left + width if anchor == "end" else left
         point_y = self.coordinates[index][1]
         label_y = max(point_y, settings.PLAN_FIELD_TOP_MM + settings.PLAN_POINT_NAME_OFFSET_MM
@@ -187,7 +197,7 @@ class PlanDrawing:
             angle += -180 if angle > 0 else 180
         center_x, center_y = (start_x + end_x) / 2, (start_y + end_y) / 2
         text = self.pipe_label_text()
-        if abs(end_x - start_x) < 1e-7:
+        if abs(end_x - start_x) < settings.GEOMETRY_TOLERANCE_MM:
             return self.vertical_pipe_label(text, center_x, center_y)
         return (
             f'<text data-kind="pipe-label" text-anchor="middle" x="0" y="{settings.PLAN_PIPE_LABEL_OFFSET_MM}" '
@@ -229,7 +239,7 @@ class PlanDrawing:
             label_y = ((start_y + end_y) / 2 + (end_x - start_x) / length_mm * settings.PLAN_LENGTH_OFFSET_MM
                        + settings.PLAN_TEXT_BASELINE_OFFSET_MM)
             anchor = "middle"
-            if abs(end_x - start_x) < 1e-7:
+            if abs(end_x - start_x) < settings.GEOMETRY_TOLERANCE_MM:
                 anchor = "start" if end_y < start_y else "end"
             elements.append(
                 f'<text data-kind="length" data-start-id={quoteattr(section["start_id"])} '
