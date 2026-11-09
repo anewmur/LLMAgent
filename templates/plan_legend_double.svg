@@ -1,0 +1,9 @@
+<g fill="none" stroke="black" stroke-width="${line_width}">
+  <path data-kind="double-pipe-symbol" d="M 0,9 H 25 M 0,11 H 25"/>
+  <path data-kind="double-bend-symbol" d="M 0,22 H 13 A 3,3 0 0 0 16,19 V 16
+                                          M 0,24 H 13 A 5,5 0 0 0 18,19 V 16"/>
+</g>
+<g data-kind="legend-axis" display="${axis_display}" fill="none" stroke="black"
+   stroke-width="${axis_width}" stroke-dasharray="${axis_dash}">
+  <path d="M 0,10 H 25 M 0,23 H 13 A 4,4 0 0 0 17,19 V 16"/>
+</g>

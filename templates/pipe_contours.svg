@@ -1,0 +1,5 @@
+<g id="pipe-contours" fill="none" stroke="black" stroke-width="${line_width}">
+  <path id="pipe-left" d="${left}"/>
+  <path id="pipe-right" d="${right}"/>
+</g>
+${axis}

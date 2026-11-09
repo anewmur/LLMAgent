@@ -1,0 +1,2 @@
+<text data-kind="${kind}" ${attributes} data-cell="${cell}" x="${left}" y="${baseline}"
+      text-anchor="${anchor}" ${transform}>${value}</text>

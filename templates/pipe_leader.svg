@@ -1,0 +1,7 @@
+<g data-kind="pipe-label" data-bounds="${left} ${bounds_top} ${right} ${bounds_bottom}"
+   font-family="${font_family}" font-size="${font_size}" fill="black" stroke="none">
+  <path data-kind="pipe-leader" d="M ${target_x},${target_y} L ${shelf_x},${shelf_y} H ${end_x}"
+        fill="none" stroke="black" stroke-width="${line_width}"/>
+  <text data-kind="pipe-network" x="${center_x}" y="${top_y}" text-anchor="middle">${network}</text>
+  <text data-kind="pipe-size" x="${center_x}" y="${bottom_y}" text-anchor="middle">${size}</text>
+</g>

@@ -1,0 +1,44 @@
+{
+  "object": {
+    "name": "Учебный участок водопровода",
+    "project_code": "AI-TEST-01",
+    "coordinate_system": "условная местная, м",
+    "pipe_material": "ПЭ 100"
+  },
+  "pipe": {
+    "material": "ПЭ 100",
+    "sdr": 17,
+    "outer_diameter_mm": 630,
+    "wall_mm": 37.4,
+    "standard": null
+  },
+  "points": [
+    {
+      "id": "P0",
+      "x": 0,
+      "y": 0,
+      "ground": 102.4,
+      "axis": 100.5
+    },
+    {
+      "id": "P1",
+      "x": 20,
+      "y": 0,
+      "ground": 102.6,
+      "axis": 100.55
+    },
+    {
+      "id": "P2",
+      "x": 20,
+      "y": 20,
+      "ground": 102.8,
+      "axis": 100.6
+    }
+  ],
+  "bends": [
+    {
+      "at": "P1",
+      "angle_deg": 90
+    }
+  ]
+}

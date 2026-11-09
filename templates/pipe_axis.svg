@@ -1,0 +1,2 @@
+<path id="route-axis" d="${path}" fill="none" stroke="black"
+      stroke-width="${line_width}" stroke-dasharray="${dasharray}"/>
