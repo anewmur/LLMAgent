@@ -29,6 +29,5 @@ desktop.ini
 api_keys.env
 .pytest_tmp/
 docs/*.pdf
-# Generated documents and temporary files
+# Временные файлы; output/ хранится в Git: по ТЗ комплект сдаётся вместе с репозиторием
 /tmp/
-/output/

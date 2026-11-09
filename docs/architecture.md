@@ -1,6 +1,6 @@
 # Архитектура и роль LLM
 
-Программа — консольный диалог. `main.py` читает входной JSON трассы, создаёт сессию `RouteSession` (`core/session.py`) и сразу делает начальный выпуск в `output/`. Затем вопросы пользователя передаются агенту `RouteAgent` (`agent/runtime.py`).
+Программа — консольный диалог. `main.py` читает входной JSON трассы, создаёт сессию `RouteSession` (`core/session.py`), проверяет наличие ключа и делает начальный выпуск в `output/`. Затем вопросы пользователя передаются агенту `RouteAgent` (`agent/runtime.py`).
 
 Модель — `deepseek-flash` через OpenAI-совместимый API DeepSeek (`agent/settings.py`: `MODEL`, `BASE_URL`). Ключ берётся из переменной окружения `DEEPSEEK_API_KEY` или из файла `api_keys.env`.
 
