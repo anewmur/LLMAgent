@@ -5,8 +5,10 @@ import pytest
 
 from core import drawing_settings as settings
 from core.documents import DocumentSet
+from core.checks.plan import PlanChecks
 from core.models import DocumentId
 from core.plan import PlanDrawing
+from core.tables import text_width
 from core.validate import validate_input
 
 
@@ -96,8 +98,9 @@ def test_plan_labels_follow_calculated_lengths_and_stations(route_data, config):
             assert name.get("x") == station.get("x") == coordinate.get("x")
             assert name.get("text-anchor") == station.get("text-anchor") == coordinate.get("text-anchor")
         assert float(lengths[0].get("y")) > coordinates[0][1]
-        assert float(lengths[2].get("x")) - coordinates[2][0] == settings.PLAN_LENGTH_OFFSET_MM
-        assert lengths[2].get("text-anchor") == "start"
+        vertical_left = float(lengths[2].get("x")) - text_width(lengths[2].text, settings.PLAN_FONT_SIZE_MM) / 2
+        assert vertical_left - coordinates[2][0] == pytest.approx(settings.PLAN_LENGTH_OFFSET_MM)
+        assert lengths[2].get("text-anchor") == "middle"
 
 
 def test_plan_symbols_and_legend_use_input(route_data, config):
@@ -206,8 +209,8 @@ def test_point_label_blocks_stay_in_field_with_leaders(route_data, config):
             assert float(label.get("y")) <= settings.PLAN_FIELD_TOP_MM + settings.PLAN_FIELD_HEIGHT_MM
 
 
-@pytest.mark.parametrize("end_y, anchor", [(80, "start"), (-80, "end")])
-def test_vertical_length_label_has_side_clearance(route_data, config, end_y, anchor):
+@pytest.mark.parametrize("end_y, side", [(80, 1), (-80, -1)])
+def test_vertical_length_label_has_side_clearance(route_data, config, end_y, side):
     route_data["points"] = route_data["points"][:2]
     route_data["points"][1].update(x=0, y=end_y)
     route_data["bends"] = []
@@ -216,5 +219,10 @@ def test_vertical_length_label_has_side_clearance(route_data, config, end_y, anc
     drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
     root = ET.fromstring(drawing.render())
     label = root.find(".//{http://www.w3.org/2000/svg}text[@data-kind='length']")
-    assert label.get("text-anchor") == anchor
-    assert abs(float(label.get("x")) - drawing.coordinates[0][0]) == settings.PLAN_LENGTH_OFFSET_MM
+    left, _, right, _ = bounds = PlanChecks.plan_label_bounds(label, settings.PLAN_FONT_SIZE_MM)
+    line_x = drawing.coordinates[0][0]
+    assert label.get("text-anchor") == "middle"
+    assert (left - line_x if side == 1 else line_x - right) == pytest.approx(settings.PLAN_LENGTH_OFFSET_MM)
+    pipe = root.find(".//{http://www.w3.org/2000/svg}text[@data-kind='pipe-label']")
+    pipe_bounds = PlanChecks.plan_label_bounds(pipe, float(pipe.get("font-size")))
+    assert not PlanChecks.rectangles_overlap(bounds, pipe_bounds)

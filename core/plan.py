@@ -6,6 +6,7 @@ from core.calculations import calculate_route_geometry
 from core.formatting import format_number, format_pipe_value, format_station
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
+from core.tables import text_width
 from core.formatting import render_template
 
 
@@ -138,10 +139,9 @@ class PlanDrawing:
     @staticmethod
     def label_width(values):
         """Возвращает приближённую ширину блока подписей в мм листа."""
-        width = max(len(unescape(values["title"])) * settings.PLAN_FONT_SIZE_MM,
-                    len(values["station"]) * settings.PLAN_FONT_SIZE_MM,
-                    len(values["coordinates"]) * settings.PLAN_COORDINATE_FONT_SIZE_MM)
-        return width * settings.TEXT_CHARACTER_WIDTH_FACTOR
+        return max(text_width(unescape(values["title"]), settings.PLAN_FONT_SIZE_MM),
+                   text_width(values["station"], settings.PLAN_FONT_SIZE_MM),
+                   text_width(values["coordinates"], settings.PLAN_COORDINATE_FONT_SIZE_MM))
 
     def point_label_layout(self, index, values):
         """Возвращает общее положение строк, сдвигая блок внутрь поля чертежа."""
@@ -193,14 +193,20 @@ class PlanDrawing:
         start_x, start_y = self.coordinates[index]
         end_x, end_y = self.coordinates[index + 1]
         angle = degrees(atan2(end_y - start_y, end_x - start_x))
+        offset = settings.PLAN_PIPE_LABEL_OFFSET_MM
         if abs(angle) > 90:
             angle += -180 if angle > 0 else 180
+        else:
+            # Подпись трубы на стороне подписи длины: ставим её за рамкой длины с тем же зазором.
+            length_text = format_number(self.sections[index]["length_m"])
+            length_far = settings.PLAN_LENGTH_OFFSET_MM + 2 * self.length_label_half_extent(index, length_text)
+            offset = max(offset, length_far + settings.PLAN_LENGTH_OFFSET_MM + settings.PLAN_FONT_SIZE_MM)
         center_x, center_y = (start_x + end_x) / 2, (start_y + end_y) / 2
         text = self.pipe_label_text()
         if abs(end_x - start_x) < settings.GEOMETRY_TOLERANCE_MM:
             return self.vertical_pipe_label(text, center_x, center_y)
         return (
-            f'<text data-kind="pipe-label" text-anchor="middle" x="0" y="{settings.PLAN_PIPE_LABEL_OFFSET_MM}" '
+            f'<text data-kind="pipe-label" text-anchor="middle" x="0" y="{offset:g}" '
             f'transform="translate({center_x:g} {center_y:g}) rotate({angle:g})">'
             f'{escape(text)}</text>'
         )
@@ -228,23 +234,37 @@ class PlanDrawing:
             "line_dasharray": settings.PLAN_ROUTE_DASHARRAY_MM,
         })
 
+    def segment_normal(self, index):
+        """Возвращает единичную нормаль к участку в мм листа; на эту сторону ставятся подписи."""
+        start_x, start_y = self.coordinates[index]
+        end_x, end_y = self.coordinates[index + 1]
+        length_mm = hypot(end_x - start_x, end_y - start_y)
+        return -(end_y - start_y) / length_mm, (end_x - start_x) / length_mm
+
+    def length_label_half_extent(self, index, text):
+        """Возвращает полуразмер рамки подписи длины по нормали к участку, мм листа."""
+        normal_x, normal_y = self.segment_normal(index)
+        return (text_width(text, settings.PLAN_FONT_SIZE_MM) / 2 * abs(normal_x)
+                + settings.PLAN_FONT_SIZE_MM / 2 * abs(normal_y))
+
+    def length_label_center(self, index, text):
+        """Возвращает центр подписи длины с заданным зазором от участка до ближайшей точки её рамки."""
+        (start_x, start_y), (end_x, end_y) = self.coordinates[index], self.coordinates[index + 1]
+        normal_x, normal_y = self.segment_normal(index)
+        offset = settings.PLAN_LENGTH_OFFSET_MM + self.length_label_half_extent(index, text)
+        return (start_x + end_x) / 2 + normal_x * offset, (start_y + end_y) / 2 + normal_y * offset
+
     def draw_lengths(self):
-        """Возвращает SVG расчётных длин со сдвигом по нормали к каждому участку."""
+        """Возвращает SVG расчётных длин, отодвинутых по нормали к каждому участку."""
         elements = []
         for index, section in enumerate(self.sections):
-            start_x, start_y = self.coordinates[index]
-            end_x, end_y = self.coordinates[index + 1]
-            length_mm = section["length_m"] * self.mm_per_meter
-            label_x = (start_x + end_x) / 2 - (end_y - start_y) / length_mm * settings.PLAN_LENGTH_OFFSET_MM
-            label_y = ((start_y + end_y) / 2 + (end_x - start_x) / length_mm * settings.PLAN_LENGTH_OFFSET_MM
-                       + settings.PLAN_TEXT_BASELINE_OFFSET_MM)
-            anchor = "middle"
-            if abs(end_x - start_x) < settings.GEOMETRY_TOLERANCE_MM:
-                anchor = "start" if end_y < start_y else "end"
+            text = format_number(section["length_m"])
+            center_x, center_y = self.length_label_center(index, text)
+            # Рамка текста — от базовой линии вверх на размер шрифта, поэтому базовая линия ниже центра на половину.
             elements.append(
                 f'<text data-kind="length" data-start-id={quoteattr(section["start_id"])} '
-                f'data-end-id={quoteattr(section["end_id"])} x="{label_x}" y="{label_y}" '
-                f'text-anchor="{anchor}">{format_number(section["length_m"])}</text>'
+                f'data-end-id={quoteattr(section["end_id"])} x="{center_x}" '
+                f'y="{center_y + settings.PLAN_FONT_SIZE_MM / 2}" text-anchor="middle">{text}</text>'
             )
         return "\n".join(elements)
 

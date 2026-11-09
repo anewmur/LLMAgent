@@ -203,14 +203,14 @@ class Project(BaseModel):
         point_ids = [point.id for point in self.points if point.id in bend_ids]
         return {point_id: f"УП{index}" for index, point_id in enumerate(point_ids, 1)}
 
-    def with_point(self, name, bend_angle=None, bend_at=None, **fields) -> dict | None:
-        """Копия проекта с правкой точки и необязательной установкой отвода."""
+    def with_point(self, name, bends=(), **fields) -> dict | None:
+        """Копия проекта с правкой точки и установкой всех переданных отводов."""
         data = self.model_dump()
         for point in data["points"]:
             if point["id"] == name:
                 point.update(fields)
-                if bend_angle is not None:
-                    self.set_bend(data, name if bend_at is None else bend_at, bend_angle)
+                for bend in bends:
+                    self.set_bend(data, bend["at"], bend["angle_deg"])
                 return data
         return None
 

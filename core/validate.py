@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from core.formatting import format_number, format_pipe_value
 from core.models import PIPE_WHERE, Level, Problem, ProblemCode, Project
-from core.settings import MISSING_BEND_MESSAGE, PIPE_SDR_TOLERANCE
+from core.settings import BEND_ANGLE_MESSAGE, MISSING_BEND_MESSAGE, PIPE_SDR_TOLERANCE
 
 
 ANGLE_TOLERANCE_DEG = 0.5  # Допуск сравнения угла отвода, градусы.
@@ -139,8 +139,8 @@ class InputValidator:
             if abs(turn_deg - bend.angle_deg) > ANGLE_TOLERANCE_DEG:
                 self.problems.append(Problem(
                     Level.ERROR, ProblemCode.BEND_ANGLE,
-                    f"угол отвода в данных {bend.angle_deg:g}, "
-                    f"по координатам поворот {turn_deg:.1f}",
+                    BEND_ANGLE_MESSAGE.format(angle=format_pipe_value(bend.angle_deg),
+                                              turn=format_pipe_value(turn_deg)),
                     where=bend.at,
                 ))
 

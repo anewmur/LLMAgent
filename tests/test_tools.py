@@ -13,11 +13,12 @@ def test_tool_schemas():
         assert tools[name]["parameters"]["properties"] == {}
     point = tools["update_point"]["parameters"]
     assert point["required"] == ["name"]
-    assert set(point["properties"]) == {"name", "x", "y", "axis", "ground", "bend_at", "bend_angle"}
+    assert set(point["properties"]) == {"name", "x", "y", "axis", "ground", "bends"}
     assert "null" in point["properties"]["axis"]["type"]
     assert point["properties"]["ground"]["type"] == ["number", "null"]
-    assert point["properties"]["bend_at"]["type"] == "string"
-    assert point["properties"]["bend_angle"]["type"] == "number"
+    bends = point["properties"]["bends"]
+    assert bends["type"] == "array" and bends["items"]["required"] == ["at", "angle_deg"]
+    assert bends["items"]["properties"] == tools["add_bend"]["parameters"]["properties"]
     added = tools["add_point"]["parameters"]
     assert set(added["required"]) == {"name", "after", "x", "y", "ground", "axis"}
     assert set(added["properties"]) == set(added["required"]) | {"bend_angle"}

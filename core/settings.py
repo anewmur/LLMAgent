@@ -33,7 +33,8 @@ MIN_POINTS = 2
 # Сообщения проверки и операций с точками и отводами.
 MISSING_BEND_MESSAGE = "поворот трассы {angle} без отвода"
 BEND_NOT_FOUND = "Отвод в этой точке не найден."
-BEND_ANGLE_REQUIRED = "Для точки отвода bend_at укажите угол bend_angle."
+BEND_FIELDS_REQUIRED = "Для каждого отвода в bends укажите точку at и угол angle_deg."
+BEND_ANGLE_MESSAGE = "угол отвода в данных {angle}, по координатам поворот {turn}"
 TITLE_ADD_POINT = "Добавление точки {name}"
 TITLE_REMOVE_POINT = "Удаление точки {name}"
 TITLE_ADD_BEND = "Добавление отвода в {name}"

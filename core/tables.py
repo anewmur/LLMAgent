@@ -10,6 +10,11 @@ from core.formatting import render_template
 TEMPLATE_PATH = TEMPLATES_DIR / "register_table.svg"
 
 
+def text_width(text, font_size):
+    """Возвращает приближённую ширину строки в мм листа."""
+    return len(text) * font_size * settings.TEXT_CHARACTER_WIDTH_FACTOR
+
+
 def wrap_text(text, width, font_size, break_long_words=True):
     """Возвращает строки текста, приближённо помещающиеся в ширину в мм листа."""
     characters = max(settings.TEXT_MIN_WRAP_CHARACTERS,

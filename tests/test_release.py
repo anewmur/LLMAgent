@@ -59,7 +59,7 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
                 text = " ".join(" ".join(root.itertext()).split())
                 assert all(item.short in text for item in items if item.key)
                 notes = root.findall(".//s:g[@id='general-notes']/s:text", NS)
-                assert len(notes) == 6
+                assert len(notes) == len(config["general_notes"])
                 pipe_note = " ".join(" ".join(notes[2].itertext()).split())
                 assert pipe_note == (f"Проектируемая сеть В1 — подземный напорный водопровод из труб "
                                      f"ПЭ 100 SDR 17 {diameter}×{format_pipe_value(wall)}. Длина трассы — {length} м.")

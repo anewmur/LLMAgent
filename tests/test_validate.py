@@ -86,7 +86,7 @@ def test_bend_angle_differs_from_route_geometry(route_data):
     bend_point = changed["bends"][0]["at"]
     assert any(
         problem.where == bend_point and problem.blocks_quantities
-        and "45" in problem.message and "90.0" in problem.message
+        and problem.message == "угол отвода в данных 45, по координатам поворот 90"
         for problem in problems
     )
 

@@ -4,10 +4,7 @@ from core import drawing_settings as settings
 from core.checks.base import BaseChecks, NS
 from core.formatting import format_number, format_station
 from core.models import DocumentId, Level
-
-
-# Оценка средней ширины символа в долях размера шрифта; безразмерный приближённый коэффициент.
-TEXT_WIDTH_FACTOR = 0.6
+from core.tables import text_width
 
 
 class PlanChecks(BaseChecks):
@@ -71,7 +68,7 @@ class PlanChecks(BaseChecks):
     @staticmethod
     def plan_label_bounds(element, font_size):
         """Возвращает приближённые границы текста: слева, сверху, справа, снизу, в мм."""
-        width = len("".join(element.itertext())) * TEXT_WIDTH_FACTOR * font_size
+        width = text_width("".join(element.itertext()), font_size)
         left = float(element.get("x"))
         bottom = float(element.get("y"))
         anchor = element.get("text-anchor", "start")

@@ -2,15 +2,15 @@ from xml.sax.saxutils import quoteattr
 
 from core import drawing_settings as settings
 from core.calculations import calculate_route_geometry
-from core.formatting import format_number, format_pipe_value
+from core.formatting import format_number, format_pipe_value, render_template
 from core.models import DocumentId
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.tables import RegisterTable, TextBlock
-from core.formatting import render_template
 
 
 TEMPLATE_PATH = TEMPLATES_DIR / "general.svg"
+ASSUMPTION_TEMPLATE_PATH = TEMPLATES_DIR / "assumption.svg"
 REGISTER_HEADERS = ("Обозначение", "Наименование", "Примечание")
 DRAWING_REGISTER_HEADERS = ("Лист", "Наименование", "Примечание")
 NETWORK_NAME = "Наружные сети водоснабжения"
@@ -56,7 +56,7 @@ class GeneralData:
         return "\n".join(elements)
 
     def notes(self):
-        """Возвращает шесть общих указаний с трубой и длиной из проекта."""
+        """Возвращает общие указания из конфигурации с трубой и длиной из проекта."""
         pipe = self.project.pipe
         pipe_description = (f"{pipe.material} SDR {format_pipe_value(pipe.sdr)} "
                             f"{format_pipe_value(pipe.outer_diameter_mm)}×{format_pipe_value(pipe.wall_mm)}")
@@ -64,10 +64,6 @@ class GeneralData:
         values = {item.id: item.full for item in self.items}
         values.update(network_code=settings.NETWORK_CODE, pipe=pipe_description, length=format_number(length))
         return [note.format(**values) for note in self.config["general_notes"]]
-
-    def assumptions(self):
-        """Возвращает краткие формулировки в порядке конфигурации."""
-        return [item.short for item in self.items if item.key]
 
     def draw_assumptions(self):
         """Выводит ключевые допущения справа и ссылку на полный перечень."""
@@ -78,7 +74,7 @@ class GeneralData:
                 continue
             block = TextBlock(item.short, settings.GENERAL_ASSUMPTIONS_LEFT_MM, top,
                               settings.GENERAL_ASSUMPTIONS_WIDTH_MM)
-            elements.append(render_template(TEMPLATES_DIR / "assumption.svg", {
+            elements.append(render_template(ASSUMPTION_TEMPLATE_PATH, {
                 "id": quoteattr(item.id), "body": block.render(),
             }))
             top += len(block.lines) * settings.TEXT_LINE_STEP_MM + settings.GENERAL_PARAGRAPH_GAP_MM

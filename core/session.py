@@ -20,7 +20,7 @@ from core.profile_style import ProfileStyle
 from core.release import create_package
 from core.settings import (
     INPUT_DIR, LOAD_ROUTE_DATA_ERROR, LOAD_ROUTE_ERROR, LOAD_ROUTE_PATH_ERROR, LOG_WARNING_LABEL, TOOL_LOG_FILENAME,
-    UPDATE_REJECTED_MESSAGE, BEND_NOT_FOUND, BEND_ANGLE_REQUIRED,
+    UPDATE_REJECTED_MESSAGE, BEND_NOT_FOUND, BEND_FIELDS_REQUIRED,
     TITLE_ADD_POINT, TITLE_REMOVE_POINT, TITLE_ADD_BEND, TITLE_REMOVE_BEND,
     LABEL_POINT_VALUE, LABEL_BEND_ANGLE,
     USAGE_LOG_HEADING,
@@ -32,7 +32,7 @@ VALUES_UNCHANGED = "Значения не изменились."
 POINT_NOT_FOUND = "Точка не найдена."
 FIELDS_REQUIRED = (
     "Укажите изменяемые координаты x, y, отметку земли ground, "
-    "отметку оси трубы axis или угол отвода bend_angle."
+    "отметку оси трубы axis или отводы bends."
 )
 PIPE_FIELDS_REQUIRED = "Укажите изменяемые поля трубы: {fields}."
 LABEL_ROUTE_LENGTH = "Общая длина трассы"
@@ -182,17 +182,19 @@ class RouteSession:
                                     if check.status == Status.WARNING]
         return response
 
-    def update_point(self, name, bend_angle=None, bend_at=None, **values):
-        """Готовит правку точки и передаёт её в общую транзакцию выпуска."""
-        updates = self.parse_fields(values, PointField, allow_empty=bend_angle is not None)
+    def update_point(self, name, bends=None, **values):
+        """Готовит правку точки вместе со всеми отводами и передаёт её в общую транзакцию выпуска."""
+        bends = bends or []
+        updates = self.parse_fields(values, PointField, allow_empty=bool(bends))
         if updates is None:
             return self.error_response(ProblemCode.FIELDS_REQUIRED, FIELDS_REQUIRED, name)
-        if bend_at and bend_angle is None:
-            return self.error_response(ProblemCode.FIELDS_REQUIRED, BEND_ANGLE_REQUIRED, name)
-        data = self.project.with_point(name, bend_angle=bend_angle, bend_at=bend_at, **updates)
+        if not all(isinstance(bend, dict) and {"at", "angle_deg"} <= bend.keys() for bend in bends):
+            return self.error_response(ProblemCode.FIELDS_REQUIRED, BEND_FIELDS_REQUIRED, name)
+        data = self.project.with_point(name, bends, **updates)
         if data is None:
             return self.error_response(ProblemCode.POINT_NOT_FOUND, POINT_NOT_FOUND, name)
-        return self.publish_update(data, lambda project: self.point_changes(name, project, bend_at=bend_at))
+        bend_points = [bend["at"] for bend in bends]
+        return self.publish_update(data, lambda project: self.point_changes(name, project, bend_points=bend_points))
 
     def route_changes(self, title, values, project) -> ChangeSet:
         """Добавляет изменение длины и собирает перечень для всех листов."""
@@ -219,12 +221,13 @@ class RouteSession:
         self.add_value(values, LABEL_BEND_ANGLE.format(name=at), before, after, UNIT_DEGREE)
         return values
 
-    def point_changes(self, name, project, title=TITLE_POINT_CHANGE, bend_at=None) -> ChangeSet:
-        """Собирает изменения точки и связанного с операцией отвода."""
+    def point_changes(self, name, project, title=TITLE_POINT_CHANGE, bend_points=()) -> ChangeSet:
+        """Собирает изменения точки, отвода в ней и отводов из той же правки."""
         before = next((point for point in self.project.points if point.id == name), None)
         after = next((point for point in project.points if point.id == name), None)
         values = self.point_values(before, after)
-        values.extend(self.bend_values(name if bend_at is None else bend_at, project))
+        for at in dict.fromkeys([name, *bend_points]):
+            values.extend(self.bend_values(at, project))
         return self.route_changes(title.format(name=name), values, project)
 
     def add_point(self, name, after, x, y, ground, axis, bend_angle=None):

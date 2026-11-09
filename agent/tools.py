@@ -3,7 +3,7 @@ from enum import Enum
 from core.drawing_settings import FONT_SIZES
 from core.models import PipeField, PointField
 from agent.settings import (
-    BEND_ANGLE_DESCRIPTION, BEND_AT_DESCRIPTION, EDIT_TOOL_RULES,
+    BEND_ANGLE_DESCRIPTION, BENDS_DESCRIPTION, EDIT_TOOL_RULES,
 )
 
 
@@ -22,6 +22,11 @@ class ToolName(str, Enum):
     REMOVE_BEND = "remove_bend"
     LOAD_ROUTE = "load_route"
     RELEASE_DOCUMENTS = "release_documents"
+
+
+# Аргументы одного отвода: имя точки и угол в градусах.
+BEND_PROPERTIES = {"at": {"type": "string"}, "angle_deg": {"type": "number"}}
+BEND_REQUIRED = ("at", "angle_deg")
 
 
 def tool(name, description, properties=None, required=(), min_properties=None):
@@ -91,8 +96,11 @@ TOOLS = [
         properties={
             "name": {"type": "string"},
             **{field.argument: {"type": ["number", "null"]} for field in PointField},
-            "bend_angle": {"type": "number", "description": BEND_ANGLE_DESCRIPTION},
-            "bend_at": {"type": "string", "description": BEND_AT_DESCRIPTION},
+            "bends": {
+                "type": "array", "description": BENDS_DESCRIPTION,
+                "items": {"type": "object", "properties": BEND_PROPERTIES,
+                          "required": list(BEND_REQUIRED), "additionalProperties": False},
+            },
         },
         required=("name",),
     ),
@@ -136,7 +144,7 @@ TOOLS = [
     tool(
         ToolName.ADD_BEND,
         "Добавить отвод в существующей точке трассы с указанным углом в градусах. " + EDIT_TOOL_RULES,
-        properties={"at": {"type": "string"}, "angle_deg": {"type": "number"}}, required=("at", "angle_deg"),
+        properties=BEND_PROPERTIES, required=BEND_REQUIRED,
     ),
     tool(
         ToolName.REMOVE_BEND,

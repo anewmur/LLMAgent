@@ -67,6 +67,8 @@ def test_topology_methods_return_copies_and_leave_validation_to_validator(route_
     assert project.with_bend("unknown", 90) is None
     assert project.without_bend("P1") is None
     assert project.without_bend("P2")["bends"] == [{"at": "P3", "angle_deg": 90}]
-    replaced = project.with_point("P5", y=120, bend_at="P2", bend_angle=45)
-    assert len(replaced["bends"]) == 2 and replaced["bends"][0]["angle_deg"] == 45
+    replaced = project.with_point("P5", [{"at": "P2", "angle_deg": 45}, {"at": "P4", "angle_deg": 30}], y=120)
+    assert replaced["bends"] == [
+        {"at": "P2", "angle_deg": 45}, {"at": "P3", "angle_deg": 90}, {"at": "P4", "angle_deg": 30},
+    ]
     assert project.model_dump() == before

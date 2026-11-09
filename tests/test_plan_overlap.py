@@ -1,13 +1,14 @@
+import math
 from xml.etree import ElementTree as ET
 
 from core.checks.base import CheckContext
 from core.checks.plan import PlanChecks
 from core.documents import DocumentSet
-from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from core.drawing_settings import DEFAULT_FONT_SIZE_MM, PLAN_FONT_SIZE_MM, PLAN_LENGTH_OFFSET_MM
 from core.models import DocumentId, Status
 from core.plan import PlanDrawing
 from core.session import RouteSession
-from core.validate import validate_input
+from core.validate import InputValidator, validate_input
 
 
 NS = {"s": "http://www.w3.org/2000/svg"}
@@ -68,3 +69,31 @@ def test_reference_is_clear_and_close_points_publish_and_commit_warning(input_fi
     expected = ET.fromstring(PlanDrawing(session.project, DocumentSet(session.project, config).get(DocumentId.PLAN)).render())
     assert ET.tostring(published.find("s:g[@id='route-labels']", NS)) == ET.tostring(expected.find("s:g[@id='route-labels']", NS))
     assert input_file.read_bytes() == original
+
+
+def test_slanted_length_label_keeps_gap_from_route(input_file, tmp_path, config):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    validator = InputValidator(session.project.with_point("P3", x=140))
+    validator.validate()
+    bends = [{"at": name, "angle_deg": round(validator.turn_angle(validator.ids.index(name)), 2)}
+             for name in ("P2", "P3")]
+
+    result = session.update_point("P3", x=140, bends=bends)
+
+    assert result["status"] == "ok", result
+    root = ET.parse(session.output_dir / "plan.svg").getroot()
+    line = root.find(".//s:polyline[@id='route-line']", NS)
+    points = [tuple(map(float, pair.split(","))) for pair in line.get("points").split()]
+    labels = root.findall(".//s:text[@data-kind='length']", NS)
+    farthest = {}
+    for label, start, end in zip(labels, points, points[1:]):
+        left, top, right, bottom = PlanChecks.plan_label_bounds(label, PLAN_FONT_SIZE_MM)
+        # Расстояния углов рамки до прямой участка; положительные — на стороне нормали, где стоят подписи.
+        distances = [((end[0] - start[0]) * (corner_y - start[1]) - (end[1] - start[1]) * (corner_x - start[0]))
+                     / math.dist(start, end) for corner_x in (left, right) for corner_y in (top, bottom)]
+        assert min(distances) >= PLAN_LENGTH_OFFSET_MM - 1e-6, label.text
+        farthest[label.get("data-start-id")] = max(distances)
+    # Повёрнутую подпись трубы у самого длинного участка P2–P3 проверка пересечений не видит.
+    pipe = root.find(".//s:text[@data-kind='pipe-label']", NS)
+    assert "translate" in pipe.get("transform")
+    assert float(pipe.get("y")) - PLAN_FONT_SIZE_MM >= farthest["P2"] + PLAN_LENGTH_OFFSET_MM - 1e-6

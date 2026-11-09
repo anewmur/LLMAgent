@@ -10,7 +10,10 @@ from core.session import RouteSession
 from core.paths import PROJECT_ROOT
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import DocumentId
-from core.settings import BEND_ANGLE_REQUIRED, LOAD_ROUTE_DATA_ERROR
+from core.calculations import calculate_route_geometry
+from core.formatting import format_pipe_value
+from core.settings import BEND_FIELDS_REQUIRED, LOAD_ROUTE_DATA_ERROR
+from core.validate import InputValidator
 
 
 NS = {"s": "http://www.w3.org/2000/svg"}
@@ -131,9 +134,9 @@ def test_unchanged_point_keeps_output_and_history(input_file, tmp_path, monkeypa
         rejected = session.update_point("P5", **arguments)
         assert rejected["status"] == "error"
         assert rejected["problems"][0]["message"] == session_module.FIELDS_REQUIRED
-    missing_angle = session.update_point("P5", x=280, bend_at="P4")
+    missing_angle = session.update_point("P5", x=280, bends=[{"at": "P4"}])
     assert missing_angle["status"] == "error"
-    assert missing_angle["problems"][0]["message"] == BEND_ANGLE_REQUIRED
+    assert missing_angle["problems"][0]["message"] == BEND_FIELDS_REQUIRED
     validation.assert_not_called()
     export.assert_not_called()
 
@@ -486,19 +489,49 @@ def test_point_move_and_bend_are_applied_together_and_replace_existing_angle(inp
     assert rejected["status"] == "error" and session.project.points[-1].y == 80
     problem = next(problem for problem in rejected["problems"] if problem["where"] == "P4")
     angle = float(re.search(r"[0-9]+,[0-9]+", problem["message"]).group().replace(",", "."))
-    applied = session.update_point("P5", y=120, bend_at="P4", bend_angle=angle)
+    applied = session.update_point("P5", y=120, bends=[{"at": "P4", "angle_deg": angle}])
     assert applied["status"] in ("ok", "warning"), applied
     assert session.project.points[-1].y == 120
     assert session.calculate_route_length()["length_m"] == pytest.approx(280 + (80 ** 2 + 40 ** 2) ** 0.5)
-    applied = session.update_point("P5", y=160, bend_at="P4", bend_angle=45)
+    applied = session.update_point("P5", y=160, bends=[{"at": "P4", "angle_deg": 45}])
     assert applied["status"] in ("ok", "warning"), applied
     assert len(session.project.bends) == 3
     assert [bend.angle_deg for bend in session.project.bends if bend.at == "P4"] == [45]
     assert any(value["name"] == "Угол отвода в P4" for value in applied["changes"]["values"])
-    assert session.update_point("P5", y=160, bend_at="P4", bend_angle=45) == {
+    assert session.update_point("P5", y=160, bends=[{"at": "P4", "angle_deg": 45}]) == {
         "status": "ok", "message": "Значения не изменились.",
     }
     assert len(session.changes) == 2
+
+
+def test_point_move_sets_new_and_existing_bends_in_one_call(input_file, tmp_path, config):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    before_length = session.calculate_route_length()["length_m"]
+    validator = InputValidator(session.project.with_point("P3", y=100))
+    validator.validate()
+    angles = {name: validator.turn_angle(validator.ids.index(name)) for name in ("P3", "P4")}
+
+    rejected = session.update_point("P3", y=100)
+
+    assert rejected["status"] == "error" and session.project.points[3].y == 80
+    messages = {problem["where"]: problem["message"] for problem in rejected["problems"]}
+    assert f"по координатам поворот {format_pipe_value(angles['P3'])}" in messages["P3"]
+    assert format_pipe_value(angles["P4"]) in messages["P4"]
+
+    bends = [{"at": name, "angle_deg": round(angle, 2)} for name, angle in angles.items()]
+    applied = session.update_point("P3", y=100, bends=bends)
+
+    assert applied["status"] in ("ok", "warning"), applied
+    assert [(bend.at, bend.angle_deg) for bend in session.project.bends] == [
+        ("P2", 90), *((bend["at"], bend["angle_deg"]) for bend in bends),
+    ]
+    values = {value["name"]: (value["before"], value["after"]) for value in applied["changes"]["values"]}
+    assert values["Угол отвода в P3"] == (90, bends[0]["angle_deg"])
+    assert values["Угол отвода в P4"] == (None, bends[1]["angle_deg"])
+    after_length = calculate_route_geometry(validator.project.points)["length_m"]
+    assert after_length != before_length
+    assert values["Общая длина трассы"] == pytest.approx((before_length, after_length))
+    assert session.calculate_route_length()["length_m"] == pytest.approx(after_length)
 
 
 @pytest.mark.parametrize("operation", ["add", "remove"])
@@ -524,7 +557,7 @@ def test_bend_replacement_and_angle_only_update_skip_repeated_release(input_file
     assert replaced["changes"]["values"] == [
         {"name": "Угол отвода в P2", "before": 90, "after": 89.8, "unit": "°"},
     ]
-    updated = session.update_point("P2", bend_angle=90)
+    updated = session.update_point("P2", bends=[{"at": "P2", "angle_deg": 90}])
     assert updated["status"] == "ok", updated
     assert [(bend.at, bend.angle_deg) for bend in session.project.bends] == [("P2", 90), ("P3", 90)]
     assert updated["changes"]["values"] == [
@@ -538,7 +571,9 @@ def test_bend_replacement_and_angle_only_update_skip_repeated_release(input_file
     monkeypatch.setattr(session_module, "validate_input", validation)
     monkeypatch.setattr(session_module, "create_package", export)
     assert session.add_bend("P2", 90) == {"status": "ok", "message": "Значения не изменились."}
-    assert session.update_point("P2", bend_angle=90) == {"status": "ok", "message": "Значения не изменились."}
+    assert session.update_point("P2", bends=[{"at": "P2", "angle_deg": 90}]) == {
+        "status": "ok", "message": "Значения не изменились.",
+    }
     assert session.changes == before_changes
     assert {path.relative_to(session.output_dir): path.read_bytes()
             for path in session.output_dir.rglob("*") if path.is_file()} == files
