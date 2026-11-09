@@ -116,7 +116,7 @@ class SpecificationColumn(IntEnum):
 class PointField(Enum):
     X = ("x", "x", "X", UNIT_M)
     Y = ("y", "y", "Y", UNIT_M)
-    Z = ("z", "axis", "отметка оси трубы", UNIT_M)
+    AXIS = ("axis", "axis", "отметка оси трубы", UNIT_M)
 
     def __init__(self, argument, attribute, label, unit):
         self.argument = argument

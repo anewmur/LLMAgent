@@ -12,9 +12,10 @@ from agent.tools import ToolName
 from core.models import Status
 from core.paths import PROJECT_ROOT
 from core.session import RouteSession
+from core.settings import INPUT_DIR
 
 
-INPUT_PATH = PROJECT_ROOT / "input" / "input.json"
+INPUT_PATH = INPUT_DIR / "input.json"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 CONFIG_PATH = PROJECT_ROOT / "config" / "requirements.yaml"
 SYSTEM_PROMPT_PATH = PROJECT_ROOT / "agent" / "system_prompt.md"
@@ -41,6 +42,7 @@ def main(argv=None):
         ToolName.CHANGE_PROFILE_FONT: session.change_profile_font,
         ToolName.UPDATE_POINT: session.update_point,
         ToolName.UPDATE_PIPE: session.update_pipe,
+        ToolName.LOAD_ROUTE: session.load_route,
         ToolName.RELEASE_DOCUMENTS: session.release,
     }
     load_dotenv(PROJECT_ROOT / "api_keys.env")
@@ -49,7 +51,7 @@ def main(argv=None):
         base_url=BASE_URL,
     )
     agent = RouteAgent(client, handlers, system_prompt, model=MODEL,
-                       tool_log=session.tool_log, save_tool_log=session.save_tool_log)
+                       tool_log=session.tool_log)
     try:
         run_dialogue(agent)
     finally:

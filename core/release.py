@@ -16,6 +16,7 @@ from core.paths import TEMPLATES_DIR
 from core.plan import PlanDrawing
 from core.profile import ProfileDrawing
 from core.sheet import svg_to_pdf
+from core.settings import CHANGES_FILENAME
 from core.specification import SpecificationDrawing
 from core.formatting import render_template
 
@@ -75,7 +76,7 @@ class PackageRelease:
                 "values": "\n".join(values),
                 "sheets": ", ".join(change["sheets"]),
             }))
-        (folder / "changes.md").write_text(render_template(TEMPLATES_DIR / "changes.md", {
+        (folder / CHANGES_FILENAME).write_text(render_template(TEMPLATES_DIR / CHANGES_FILENAME, {
             "entries": "\n".join(entries),
         }), encoding="utf-8")
 

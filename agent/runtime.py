@@ -3,7 +3,7 @@ import re
 
 from agent.settings import (
     EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY,
-    ROUND_LIMIT_RESPONSE, SOURCE_PATTERN,
+    ROUND_LIMIT_RESPONSE, SOURCE_PATTERN, SOURCE_SEPARATOR,
     SOURCE_WARNING_TEMPLATE, TOOL_LOG_TEMPLATE, TURN_CONTEXT_TEMPLATE,
 )
 from agent.tools import TOOLS
@@ -14,12 +14,11 @@ class RouteAgent:
     """Диалог о трассе с историей сообщений, вызовами инструментов и журналом."""
 
     def __init__(self, client, handlers, system_prompt, model=MODEL,
-                 max_rounds=MAX_TOOL_ROUNDS, tool_log=None, save_tool_log=None):
+                 max_rounds=MAX_TOOL_ROUNDS, tool_log=None):
         """Сохраняет клиент, инструменты и настройки, начинает историю системным промптом."""
         self.client, self.handlers = client, handlers
         self.model, self.max_rounds = model, max_rounds
         self.tool_log = [] if tool_log is None else tool_log
-        self.save_tool_log = save_tool_log
         self.turn = 0
         self.messages = [{"role": "system", "content": system_prompt}]
 
@@ -59,8 +58,6 @@ class RouteAgent:
                               "arguments": call.function.arguments, "result": result})
         print(TOOL_LOG_TEMPLATE.format(turn=self.turn, tool=call.function.name,
                                        arguments=call.function.arguments, status=result.get("status", Status.OK)))
-        if self.save_tool_log is not None:
-            self.save_tool_log()
         self.messages.append({
             "role": "tool", "tool_call_id": call.id,
             "content": json.dumps(result, ensure_ascii=False),
@@ -68,11 +65,11 @@ class RouteAgent:
 
     def check_sources(self, text):
         """Предупреждает, если инструмент не вызывался в указанном вопросе."""
-        for source, turn_text in re.findall(SOURCE_PATTERN, text):
+        for sources, turn_text in re.findall(SOURCE_PATTERN, text):
             source_turn = int(turn_text)
-            if not any(entry.get("tool") == source and entry.get("turn") == source_turn for entry in self.tool_log):
-                warning = SOURCE_WARNING_TEMPLATE.format(source=source, turn=source_turn)
-                print(warning)
-                self.tool_log.append({"turn": self.turn, "warning": warning})
-                if self.save_tool_log is not None:
-                    self.save_tool_log()
+            for source_name in sources.split(SOURCE_SEPARATOR):
+                source = source_name.strip()
+                if not any(entry.get("tool") == source and entry.get("turn") == source_turn for entry in self.tool_log):
+                    warning = SOURCE_WARNING_TEMPLATE.format(source=source, turn=source_turn)
+                    print(warning)
+                    self.tool_log.append({"turn": self.turn, "warning": warning})

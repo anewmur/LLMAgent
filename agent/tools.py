@@ -13,6 +13,7 @@ class ToolName(str, Enum):
     CHANGE_PROFILE_FONT = "change_profile_font"
     UPDATE_POINT = "update_point"
     UPDATE_PIPE = "update_pipe"
+    LOAD_ROUTE = "load_route"
     RELEASE_DOCUMENTS = "release_documents"
 
 
@@ -77,7 +78,7 @@ TOOLS = [
         ToolName.UPDATE_POINT,
         (
             "Изменить точку текущей трассы и перевыпустить комплект. name — имя точки, x и y — "
-            "координаты в плане, z — отметка оси трубы, в метрах. Неуказанные поля остаются "
+            "координаты в плане, axis — отметка оси трубы, в метрах. Неуказанные поля остаются "
             "прежними. Явный null — попытка удалить значение. При ошибке проект и документы не "
             "меняются; уточни данные у пользователя. При warning изменение принято и комплект "
             "опубликован; сообщи предупреждения."
@@ -106,6 +107,12 @@ TOOLS = [
             for field in PipeField if field != PipeField.STANDARD
         },
         min_properties=1,
+    ),
+    tool(
+        ToolName.LOAD_ROUTE,
+        "Загружает другую трассу из JSON-файла в папке input и выпускает по ней комплект",
+        properties={"path": {"type": "string", "description": "Путь относительно корня проекта, например input/examples/route_2.json."}},
+        required=("path",),
     ),
     tool(
         ToolName.RELEASE_DOCUMENTS,

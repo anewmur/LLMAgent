@@ -93,8 +93,7 @@ def test_terminal_accepts_multiple_questions(monkeypatch, config, input_name, ex
     assert arguments.args[0] is client
     assert set(arguments.args[1]) == set(ToolName)
     assert arguments.args[2] == main.SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-    assert arguments.kwargs == {"model": MODEL, "tool_log": session.tool_log,
-                                "save_tool_log": session.save_tool_log}
+    assert arguments.kwargs == {"model": MODEL, "tool_log": session.tool_log}
     client_factory.assert_called_once_with(api_key="test-key", base_url=BASE_URL)
     session.release.assert_called_once_with()
     config_loader.assert_called_once_with()
@@ -126,13 +125,13 @@ def test_tools_update_current_session(input_file, tmp_path, config):
     assert input_file.read_bytes() == original
 
 
-@pytest.mark.parametrize("case", ["missing_z", "material_conflict"])
+@pytest.mark.parametrize("case", ["missing_axis", "material_conflict"])
 def test_validation_error_is_given_to_model_for_clarification(input_file, tmp_path, case, config):
     session = RouteSession(input_file, tmp_path / "output", config)
     if case == "material_conflict":
         session.project.pipe.material = "ПЭ 80"
     before = session.project.model_dump()
-    arguments = '{"name":"P3","z":null}' if case == "missing_z" else '{"name":"P5","x":300}'
+    arguments = '{"name":"P3","axis":null}' if case == "missing_axis" else '{"name":"P5","x":300}'
     client = Mock()
     client.chat.completions.create.side_effect = [
         response(tool_name="update_point", arguments=arguments),
@@ -141,7 +140,7 @@ def test_validation_error_is_given_to_model_for_clarification(input_file, tmp_pa
     agent = RouteAgent(client, {"update_point": session.update_point}, "Помощник", tool_log=session.tool_log)
     text = agent.ask("Удали отметку P3")
     result = json.loads(next(message["content"] for message in agent.messages if message["role"] == "tool"))
-    assert result["status"] == "error" and result["problems"][0]["where"] == ("P3" if case == "missing_z" else "pipe")
+    assert result["status"] == "error" and result["problems"][0]["where"] == ("P3" if case == "missing_axis" else "pipe")
     assert text.endswith("?") and session.project.model_dump() == before
     assert not session.changes and not (tmp_path / "output").exists()
 
@@ -165,7 +164,7 @@ def test_missing_axis_is_clarified_before_documents_are_released(route_data, wri
     client.chat.completions.create.side_effect = [
         response(tool_name=ToolName.RELEASE_DOCUMENTS.value),
         response(content="В точке P3 нет отметки оси трубы. Укажите отметку."),
-        response(tool_name=ToolName.UPDATE_POINT.value, arguments='{"name":"P3","z":100.6}', call_id="call_2"),
+        response(tool_name=ToolName.UPDATE_POINT.value, arguments='{"name":"P3","axis":100.6}', call_id="call_2"),
         response(content="Отметка оси P3: не задана → 100,60 м. Комплект выпущен."),
     ]
     handlers = {ToolName.RELEASE_DOCUMENTS: session.release, ToolName.UPDATE_POINT: session.update_point}
@@ -205,8 +204,7 @@ def test_pipe_tool_updates_session_and_returns_changes(input_file, tmp_path, con
         response(content="Изменения: ПЭ 100 → ПЭ 80; SDR 17 → 11; диаметр 110 → 160 мм; стенка 6,6 → 14,6 мм."),
     ]
     agent = RouteAgent(client, {ToolName.UPDATE_PIPE: session.update_pipe},
-                       SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log,
-                       save_tool_log=session.save_tool_log)
+                       SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log)
 
     text = agent.ask("Замени трубу на ПЭ 80 SDR 11, наружный диаметр 160 мм, стенка 14,6 мм")
 
@@ -224,8 +222,6 @@ def test_pipe_tool_updates_session_and_returns_changes(input_file, tmp_path, con
     assert session.project.pipe.outer_diameter_mm == 160 and session.project.pipe.wall_mm == 14.6
     assert session.project.pipe.sdr == 11
     assert session.tool_log[0]["tool"] == "update_pipe" and session.tool_log[0]["result"] == result
-    journal = (folder / "tool_log.md").read_text(encoding="utf-8")
-    assert '| 1 | update_pipe |' in journal and '"outer_diameter": 160' in journal
     assert text.startswith("Изменения:") and "ПЭ 100 → ПЭ 80" in text
     assert (folder / "pdf/package.pdf").is_file()
     assert "Материал трубы: **ПЭ 100 → ПЭ 80**." in (folder / "changes.md").read_text(encoding="utf-8")
@@ -240,8 +236,7 @@ def test_source_warning_uses_session_tool_history(called, capsys):
     client = Mock()
     replies = [response(tool_name=name)] if called else []
     client.chat.completions.create.side_effect = replies + [response(content=text), response(content=text)]
-    save_log = Mock()
-    agent = RouteAgent(client, {name: handler}, "Помощник", save_tool_log=save_log)
+    agent = RouteAgent(client, {name: handler}, "Помощник")
 
     assert agent.ask("Длина?") == text
     first_output = capsys.readouterr().out
@@ -250,7 +245,6 @@ def test_source_warning_uses_session_tool_history(called, capsys):
     assert agent.turn == 2
     assert agent.messages[1] == {"role": "system", "content": "Текущий вопрос: 1."}
     warnings = [entry for entry in agent.tool_log if "warning" in entry]
-    assert save_log.call_count == (1 if called else 2)
     if called:
         handler.assert_called_once_with()
         assert "[журнал] вопрос 1: calculate_route_length({}) -> ok" in first_output
@@ -279,3 +273,30 @@ def test_source_with_called_tool_and_wrong_turn_warns(capsys):
     warning = "[журнал] предупреждение: источник calculate_route_length (вопрос 2) не вызывался"
     assert warning in capsys.readouterr().out
     assert agent.tool_log[-1] == {"turn": 1, "warning": warning}
+
+
+@pytest.mark.parametrize("both_called", [True, False])
+def test_multiple_sources_warn_only_about_the_uncalled_tool(both_called, capsys):
+    first_name = ToolName.CALCULATE_ROUTE_LENGTH.value
+    second_name = ToolName.CALCULATE_MATERIAL_QUANTITIES.value
+    text = f"Длина — 360 м.\nИсточник: {first_name},  {second_name} (вопрос 1)"
+    handlers = {name: Mock(return_value={"status": "ok"}) for name in [first_name, second_name]}
+    replies = [response(tool_name=first_name)]
+    if both_called:
+        replies.append(response(tool_name=second_name, call_id="call_2"))
+    client = Mock()
+    client.chat.completions.create.side_effect = replies + [response(content=text)]
+    agent = RouteAgent(client, handlers, "Помощник")
+
+    assert agent.ask("Какова длина и сколько нужно трубы?") == text
+
+    handlers[first_name].assert_called_once_with()
+    if both_called:
+        handlers[second_name].assert_called_once_with()
+    else:
+        handlers[second_name].assert_not_called()
+    warnings = [entry["warning"] for entry in agent.tool_log if "warning" in entry]
+    expected = [] if both_called else [f"[журнал] предупреждение: источник {second_name} (вопрос 1) не вызывался"]
+    assert warnings == expected
+    printed = capsys.readouterr().out.splitlines()
+    assert [line for line in printed if "предупреждение:" in line] == expected

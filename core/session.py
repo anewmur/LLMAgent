@@ -10,7 +10,7 @@ from core.calculations import (
 )
 from core.documents import DocumentSet
 from core.formatting import render_template
-from core.paths import TEMPLATES_DIR
+from core.paths import PROJECT_ROOT, TEMPLATES_DIR
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import (
     Change, ChangeSet, DocumentId, Level, PipeField, PointField,
@@ -18,12 +18,16 @@ from core.models import (
 )
 from core.profile_style import ProfileStyle
 from core.release import create_package
+from core.settings import (
+    INPUT_DIR, LOAD_ROUTE_DATA_ERROR, LOAD_ROUTE_ERROR, LOAD_ROUTE_PATH_ERROR, LOG_WARNING_LABEL, TOOL_LOG_FILENAME,
+    UPDATE_REJECTED_MESSAGE,
+)
 from core.validate import validate_input
 
 
 VALUES_UNCHANGED = "Значения не изменились."
 POINT_NOT_FOUND = "Точка не найдена."
-FIELDS_REQUIRED = "Укажите изменяемые x, y или z."
+FIELDS_REQUIRED = "Укажите изменяемые координаты x, y или отметку оси трубы axis."
 PIPE_FIELDS_REQUIRED = "Укажите изменяемые поля трубы: {fields}."
 LABEL_ROUTE_LENGTH = "Общая длина трассы"
 LABEL_PROFILE_FONT = "Базовый шрифт профиля"
@@ -52,14 +56,14 @@ class RouteSession:
         rows = []
         for entry in self.tool_log:
             if "warning" in entry:
-                cells = (entry["turn"], "Предупреждение", entry["warning"], Status.WARNING)
+                cells = (entry["turn"], LOG_WARNING_LABEL, entry["warning"], Status.WARNING)
             else:
                 cells = (entry["turn"], entry["tool"], entry["arguments"], entry["result"].get("status", Status.OK))
             cells = [str(value).replace("|", "\\|").replace("\r", "").replace("\n", "<br>") for value in cells]
             rows.append("| " + " | ".join(cells) + " |")
-        text = render_template(TEMPLATES_DIR / "tool_log.md", {"rows": "\n".join(rows)})
+        text = render_template(TEMPLATES_DIR / TOOL_LOG_FILENAME, {"rows": "\n".join(rows)})
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        (self.output_dir / "tool_log.md").write_text(text, encoding="utf-8")
+        (self.output_dir / TOOL_LOG_FILENAME).write_text(text, encoding="utf-8")
 
     @staticmethod
     def problem_response(status, problems, **extra):
@@ -97,6 +101,27 @@ class RouteSession:
             self.save_tool_log()
         return result
 
+    def load_route(self, path):
+        """Переключается на разобранную трассу и пробует выпустить комплект."""
+        try:
+            input_path = Path(path)
+            if input_path.is_absolute():
+                return {"status": Status.ERROR, "message": LOAD_ROUTE_PATH_ERROR}
+            input_path = (PROJECT_ROOT / input_path).resolve()
+            if not input_path.is_relative_to(INPUT_DIR.resolve()):
+                return {"status": Status.ERROR, "message": LOAD_ROUTE_PATH_ERROR}
+            loaded = RouteSession(input_path, self.output_dir, self.config)
+        except (OSError, ValueError, TypeError) as error:
+            return {"status": Status.ERROR, "message": LOAD_ROUTE_ERROR.format(error=error)}
+        self.project, self.problems, self.documents = loaded.project, loaded.problems, loaded.documents
+        self.changes, self.font_size = loaded.changes, loaded.font_size
+        result = self.release()
+        if result["status"] == Status.ERROR:
+            return {**result, "message": LOAD_ROUTE_DATA_ERROR}
+        return {"status": result["status"], "object_name": self.project.object.name,
+                "point_count": len(self.project.points),
+                "length_m": calculate_route_geometry(self.project.points)["length_m"]}
+
     @staticmethod
     def has_errors(project, problems):
         """Проверяет, отсутствует ли проект или есть ли ошибки проверки данных."""
@@ -115,7 +140,7 @@ class RouteSession:
         """Проверяет новые данные и выпускает комплект; при ошибке проект не меняется."""
         project, problems = validate_input(data)
         if self.has_errors(project, problems):
-            return self.problem_response(Status.ERROR, problems)
+            return self.problem_response(Status.ERROR, problems, message=UPDATE_REJECTED_MESSAGE)
         return self.apply(project, make_changes(project), self.font_size)
 
     def all_sheets(self):

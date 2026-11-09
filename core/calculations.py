@@ -43,7 +43,7 @@ def calculate_route_length(project: Project):
     """Возвращает длину, участки, координаты и отметки оси точек проверенного проекта."""
     return {
         **calculate_route_geometry(project.points),
-        "points": [{"name": point.id, "x": point.x, "y": point.y, "z": point.axis}
+        "points": [{"name": point.id, "x": point.x, "y": point.y, "axis": point.axis}
                    for point in project.points],
     }
 
