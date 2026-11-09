@@ -17,14 +17,14 @@ NS = {"s": "http://www.w3.org/2000/svg"}
 
 def test_profile_geometry_scales_and_pipe_contours(route_data, config):
     for p5_x, diameter, wall, length, origin_x in [
-        (280, 110, 6.6, 360, 164.5), (300, 160, 9.5, 380, 159.5), (280, 250, 14.8, 360, 164.5),
+        (280, 110, 6.6, 360, 163.0), (300, 160, 9.5, 380, 158.0), (280, 250, 14.8, 360, 163.0),
     ]:
         route_data["points"][-1]["x"] = p5_x
         route_data["pipe"].update(outer_diameter_mm=diameter, wall_mm=wall)
         route_data["object"]["project_code"] = "OTHER-78"
         project, problems = validate_input(route_data)
         assert not problems
-        root = ET.fromstring(ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE)).render())
+        root = ET.fromstring(ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config).render())
         geometry = root.find("s:g[@id='profile-geometry']", NS)
         assert geometry.get("data-horizontal-scale") == "2000"
         assert geometry.get("data-vertical-scale") == "100"
@@ -38,8 +38,8 @@ def test_profile_geometry_scales_and_pipe_contours(route_data, config):
         assert pipe_xy[-1][0] - pipe_xy[0][0] == pytest.approx(length / 2)
         assert all(30 <= point_x <= 405 for point_x, point_y in ground_xy + pipe_xy)
         all_y = [point_y for point_x, point_y in ground_xy + pipe_xy]
-        assert (min(all_y) + max(all_y)) / 2 == pytest.approx(43)
-        assert min(all_y) >= 15 and max(all_y) <= 71
+        assert max(point_y for point_x, point_y in pipe_xy) == pytest.approx(76)
+        assert min(all_y) > 20
         assert [point_y - ground_xy[0][1] for point_x, point_y in ground_xy] == pytest.approx([0, -4, -6, -10, -14, -16])
         assert [point_y - pipe_xy[0][1] for point_x, point_y in pipe_xy] == pytest.approx([0, -2, -4, -6, -8, -10])
         datum = float(geometry.get("data-datum-m"))
@@ -54,7 +54,7 @@ def test_profile_geometry_scales_and_pipe_contours(route_data, config):
         assert ground.get("stroke-width") == "0.45"
         text = " ".join(root.itertext())
         assert all(value in text for value in ["OTHER-78-НВ", "1:2000", "1:100", "Без изоляции"])
-        assert f"SDR 17 ⌀{diameter}×{format_pipe_value(wall)}" in text
+        assert f"Труба полиэтиленовая ПЭ 100 SDR 17 ⌀{diameter}×{format_pipe_value(wall)}" in text
         level = root.find(".//s:text[@data-kind='bottom-level']", NS)
         assert level.get("transform") == "translate(74.5 7.5) rotate(-90)"
 
@@ -64,7 +64,7 @@ def test_profile_slope_cells_show_direction_and_values(route_data, config):
         point["axis"] = axis
     project, problems = validate_input(route_data)
     assert not problems
-    root = ET.fromstring(ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE)).render())
+    root = ET.fromstring(ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config).render())
     lines = root.findall(".//s:path[@data-kind='slope-line']", NS)
     assert len(lines) == 5
     dividers = root.findall(".//s:line[@data-kind='slope-divider']", NS)
@@ -74,9 +74,9 @@ def test_profile_slope_cells_show_direction_and_values(route_data, config):
     # В SVG координата Y растёт вниз. Первый участок поднимается на 2 м:
     # направление диагонали не должно зависеть от величины перепада.
     for index, (start_y, end_y, slope, length) in enumerate([
-        (99, 77, "33,33", "60,00"),
-        (77, 99, "-16,67", "60,00"),
-        (88, 88, "0,00", "80,00"),
+        (99, 77, "33,3", "60,00"),
+        (77, 99, "16,7", "60,00"),
+        (88, 88, "0", "80,00"),
     ]):
         start, end = [tuple(map(float, pair.split(","))) for pair in lines[index].get("d").split()[1::2]]
         assert start[0] < end[0]
@@ -96,7 +96,7 @@ def test_profile_missing_levels_and_invalid_geometry(route_data, case, config):
         for point in route_data["points"]:
             point.update(axis=None, ground=None)
     elif case == "too_long":
-        route_data["points"][-1]["x"] = 800
+        route_data["points"][-1]["x"] = 5000
     elif case == "too_high":
         route_data["points"][-1]["ground"] = 120
     else:
@@ -105,12 +105,15 @@ def test_profile_missing_levels_and_invalid_geometry(route_data, case, config):
     if case == "zero_length":
         assert any(problem.blocks_length for problem in problems)
         return
+    if case == "too_high":
+        assert ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config).render()
+        return
     if case != "missing":
         with pytest.raises(ValueError):
-            ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE)).render()
+            ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config).render()
         return
     assert {problem.where for problem in problems} == {"P2", "P4"}
-    root = ET.fromstring(ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE)).render())
+    root = ET.fromstring(ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config).render())
     ground = root.find(".//s:path[@id='ground-line']", NS).get("d").split()
     pipe = root.find(".//s:path[@id='pipe-bottom-line']", NS).get("d").split()
     assert ground[::2] == ["M", "L", "L", "L", "M"]

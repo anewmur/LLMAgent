@@ -4,11 +4,13 @@ from time import perf_counter
 
 from agent.settings import (
     EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY,
+    RELEASE_CLAIM_PATTERN, RELEASE_NEGATION_PATTERN, RELEASE_WARNING_TEMPLATE,
+    RELEASE_SUBJECT_PATTERN, RELEASE_SENTENCE_SEPARATOR,
     ROUND_LIMIT_RESPONSE, SOURCE_PATTERN, SOURCE_SEPARATOR,
     SOURCE_WARNING_TEMPLATE, TOOL_LOG_TEMPLATE, TURN_CONTEXT_TEMPLATE,
     USAGE_LOG_TEMPLATE, SESSION_USAGE_TEMPLATE, PRICE_NOTE,
 )
-from agent.tools import TOOLS
+from agent.tools import TOOLS, ToolName
 from agent.usage import TokenUsage, utc_now
 from core.models import Status
 
@@ -65,6 +67,7 @@ class RouteAgent:
             if not message.tool_calls:
                 text = message.content or EMPTY_RESPONSE
                 self.check_sources(text)
+                self.check_release_claim(text)
                 return text
             for call in message.tool_calls:
                 self.run_tool(call)
@@ -89,6 +92,20 @@ class RouteAgent:
             "role": "tool", "tool_call_id": call.id,
             "content": json.dumps(result, ensure_ascii=False),
         })
+
+    def check_release_claim(self, text):
+        """Предупреждает о заявлении выпуска без успешного инструмента в текущем вопросе."""
+        claims = [match for sentence in re.split(RELEASE_SENTENCE_SEPARATOR, text)
+                  if re.search(RELEASE_SUBJECT_PATTERN, sentence)
+                  for match in re.finditer(RELEASE_CLAIM_PATTERN, sentence)
+                  if not re.search(RELEASE_NEGATION_PATTERN, sentence[:match.start()])]
+        released = any(entry.get("turn") == self.turn and entry.get("tool") == ToolName.RELEASE_DOCUMENTS
+                       and entry.get("result", {}).get("status") in (Status.OK, Status.WARNING)
+                       for entry in self.tool_log)
+        if claims and not released:
+            warning = RELEASE_WARNING_TEMPLATE.format(turn=self.turn)
+            print(warning)
+            self.tool_log.append({"turn": self.turn, "warning": warning})
 
     def check_sources(self, text):
         """Предупреждает, если инструмент не вызывался в указанном вопросе."""

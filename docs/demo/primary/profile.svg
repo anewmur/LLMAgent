@@ -71,113 +71,163 @@
   <text id="paper-format" x="414" y="295.5" text-anchor="end"
         font-family="DejaVu Sans" font-size="2.5">Формат A3</text>
 <g xmlns="http://www.w3.org/2000/svg" id="profile-geometry"
-   data-datum-m="98.1725" data-horizontal-scale="2000" data-vertical-scale="100"
+   data-datum-m="99.445" data-horizontal-scale="2000" data-vertical-scale="100"
    data-font-size="3.5" font-family="DejaVu Sans" fill="none" stroke="black">
-  <path id="ground-line" d="M 164.5,38.72499999999994 L 194.5,34.72500000000002 L 224.5,32.724999999999994 L 264.5,28.724999999999937 L 304.5,24.725000000000023 L 344.5,22.724999999999994" stroke-width="0.45"/>
-  <path id="pipe-bottom-line" d="M 164.5,63.27500000000006 L 194.5,61.275000000000034 L 224.5,59.275000000000006 L 264.5,57.27499999999998 L 304.5,55.27499999999995 L 344.5,53.27500000000006" stroke-width="1.0"/>
+  <path id="ground-line" d="M 163.0,51.449999999999875 L 193.0,47.44999999999996 L 223.0,45.44999999999993 L 263.0,41.449999999999875 L 303.0,37.44999999999996 L 343.0,35.44999999999993" stroke-width="0.45"/>
+  <path id="pipe-bottom-line" d="M 163.0,76.0 L 193.0,73.99999999999997 L 223.0,71.99999999999994 L 263.0,69.99999999999991 L 303.0,67.99999999999989 L 343.0,66.0" stroke-width="1.0"/>
 
 </g>
+
 <g id="profile-projections" font-family="DejaVu Sans" font-size="3.5">
-<path data-point-id="P0" d="M 164.5,38.72499999999994 V 81" stroke="black" stroke-width="0.35"/>
-<text data-kind="depth" data-point-id="P0" transform="translate(163.0 31.724999999999937) rotate(-90)" text-anchor="middle">2,46</text>
-<path data-point-id="P1" d="M 194.5,34.72500000000002 V 81" stroke="black" stroke-width="0.35"/>
-<text data-kind="depth" data-point-id="P1" transform="translate(193.0 27.725000000000023) rotate(-90)" text-anchor="middle">2,66</text>
-<path data-point-id="P2" d="M 224.5,32.724999999999994 V 81" stroke="black" stroke-width="0.35"/>
-<text data-kind="depth" data-point-id="P2" transform="translate(223.0 25.724999999999994) rotate(-90)" text-anchor="middle">2,66</text>
-<path data-point-id="P3" d="M 264.5,28.724999999999937 V 81" stroke="black" stroke-width="0.35"/>
-<text data-kind="depth" data-point-id="P3" transform="translate(263.0 21.724999999999937) rotate(-90)" text-anchor="middle">2,86</text>
-<path data-point-id="P4" d="M 304.5,24.725000000000023 V 81" stroke="black" stroke-width="0.35"/>
-<text data-kind="depth" data-point-id="P4" transform="translate(303.0 17.725000000000023) rotate(-90)" text-anchor="middle">3,06</text>
-<path data-point-id="P5" d="M 344.5,22.724999999999994 V 81" stroke="black" stroke-width="0.35"/>
-<text data-kind="depth" data-point-id="P5" transform="translate(343.0 15.724999999999994) rotate(-90)" text-anchor="middle">3,06</text>
+<path data-point-id="P0" d="M 163.0,51.449999999999875 V 81" stroke="black" stroke-width="0.35"/>
+<text data-kind="depth" data-placement="ok" data-point-id="P0" transform="translate(161.5 44.449999999999875) rotate(-90)" text-anchor="middle">2,46</text>
+<path data-point-id="P1" d="M 193.0,47.44999999999996 V 81" stroke="black" stroke-width="0.35"/>
+<text data-kind="depth" data-placement="ok" data-point-id="P1" transform="translate(191.5 40.44999999999996) rotate(-90)" text-anchor="middle">2,66</text>
+<path data-point-id="P2" d="M 223.0,45.44999999999993 V 81" stroke="black" stroke-width="0.35"/>
+<text data-kind="depth" data-placement="ok" data-point-id="P2" transform="translate(221.5 38.44999999999993) rotate(-90)" text-anchor="middle">2,66</text>
+<path data-point-id="P3" d="M 263.0,41.449999999999875 V 81" stroke="black" stroke-width="0.35"/>
+<text data-kind="depth" data-placement="ok" data-point-id="P3" transform="translate(261.5 34.449999999999875) rotate(-90)" text-anchor="middle">2,86</text>
+<path data-point-id="P4" d="M 303.0,37.44999999999996 V 81" stroke="black" stroke-width="0.35"/>
+<text data-kind="depth" data-placement="ok" data-point-id="P4" transform="translate(301.5 30.44999999999996) rotate(-90)" text-anchor="middle">3,06</text>
+<path data-point-id="P5" d="M 343.0,35.44999999999993 V 81" stroke="black" stroke-width="0.35"/>
+<text data-kind="depth" data-placement="ok" data-point-id="P5" transform="translate(341.5 28.449999999999932) rotate(-90)" text-anchor="middle">3,06</text>
 </g>
-<g xmlns="http://www.w3.org/2000/svg" id="profile-grid" transform="translate(88.5 81)"
+<g xmlns="http://www.w3.org/2000/svg" id="profile-grid" transform="translate(87.0 81)"
    font-family="DejaVu Sans" font-size="3.5" fill="black">
   <!-- Форма 2 с Изменением 1; дополнительная строка «Пикеты». -->
-  <path id="grid-outline" d="M 0,0 H 258.0 V 151 H 0 Z M 70,0 V 151"
+  <path id="grid-outline" d="M 0,0 H 261.0 V 154 H 0 Z M 70,0 V 154"
         fill="none" stroke="black" stroke-width="0.35"/>
-  <path d="M 0,15 H 258.0 M 0,30 H 258.0 M 0,45 H 258.0 M 0,65 H 258.0
-           M 0,77 H 258.0 M 0,99 H 258.0 M 0,111 H 258.0 M 0,131 H 258.0"
+  <path d="M 0,15 H 261.0 M 0,30 H 261.0 M 0,45 H 261.0 M 0,65 H 261.0
+           M 0,77 H 261.0 M 0,99 H 261.0 M 0,111 H 261.0 M 0,131 H 261.0"
         fill="none" stroke="black" stroke-width="0.35"/>
   <g id="grid-headings">
-    <text x="2" y="4"><tspan x="2">Проектная отметка низа</tspan><tspan x="2" dy="5">трубы или низа лотка</tspan><tspan x="2" dy="5">колодца, м</tspan></text>
-    <text x="2" y="21"><tspan x="2">Проектная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
-    <text x="2" y="36"><tspan x="2">Натурная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
-    <text x="2" y="52"><tspan x="2">Обозначение трубы</tspan><tspan x="2" dy="6">и тип изоляции</tspan></text>
-    <text x="2" y="73">Основание</text>
-    <text x="2" y="86"><tspan x="2">Уклон, ‰;</tspan><tspan x="2" dy="6">длина, м</tspan></text>
-    <text x="2" y="107">Расстояние, м</text>
-    <text x="2" y="118"><tspan x="2">Номер колодца,</tspan><tspan x="2" dy="6">точки, угла поворота</tspan></text>
-    <text x="2" y="143">Пикеты</text>
+    <text data-cell="0 0 70 15" x="2" y="4"><tspan x="2">Проектная отметка низа</tspan><tspan x="2" dy="5">трубы или низа лотка</tspan><tspan x="2" dy="5">колодца, м</tspan></text>
+    <text data-cell="0 15 70 30" x="2" y="21"><tspan x="2">Проектная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
+    <text data-cell="0 30 70 45" x="2" y="36"><tspan x="2">Натурная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
+    <text data-cell="0 45 70 65" x="2" y="52"><tspan x="2">Обозначение трубы</tspan><tspan x="2" dy="6">и тип изоляции</tspan></text>
+    <text data-cell="0 65 70 77" x="2" y="73">Основание</text>
+    <text data-cell="0 77 70 99" x="2" y="86"><tspan x="2">Уклон, ‰;</tspan><tspan x="2" dy="6">длина, м</tspan></text>
+    <text data-cell="0 99 70 111" x="2" y="107">Расстояние, м</text>
+    <text data-cell="0 111 70 131" x="2" y="118"><tspan x="2">Номер колодца,</tspan><tspan x="2" dy="6">точки, угла поворота</tspan></text>
+    <text data-cell="0 131 70 154" x="2" y="143">Пикеты</text>
   </g>
-  <text data-kind="bottom-level" data-point-id="P0" transform="translate(74.5 7.5) rotate(-90)" text-anchor="middle">99,95</text>
-<text data-kind="ground-level" data-point-id="P0" transform="translate(74.5 22.5) rotate(-90)" text-anchor="middle">102,40</text>
-<text data-kind="natural-ground" data-point-id="P0" transform="translate(74.5 37.5) rotate(-90)" text-anchor="middle">—</text>
-<text data-kind="point-name" data-point-id="P0" transform="translate(74.5 121) rotate(-90)" text-anchor="middle">P0</text>
-<text data-kind="station" data-point-id="P0" transform="translate(74.5 141) rotate(-90)" text-anchor="middle">ПК 0+00,00</text>
-<path d="M 76.0,0 V 45 M 76.0,99 V 151" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="bottom-level" data-point-id="P1" transform="translate(104.5 7.5) rotate(-90)" text-anchor="middle">100,15</text>
-<text data-kind="ground-level" data-point-id="P1" transform="translate(104.5 22.5) rotate(-90)" text-anchor="middle">102,80</text>
-<text data-kind="natural-ground" data-point-id="P1" transform="translate(104.5 37.5) rotate(-90)" text-anchor="middle">—</text>
-<text data-kind="point-name" data-point-id="P1" transform="translate(104.5 121) rotate(-90)" text-anchor="middle">P1</text>
-<text data-kind="station" data-point-id="P1" transform="translate(104.5 141) rotate(-90)" text-anchor="middle">ПК 0+60,00</text>
-<path d="M 106.0,0 V 45 M 106.0,99 V 151" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="bottom-level" data-point-id="P2" transform="translate(134.5 7.5) rotate(-90)" text-anchor="middle">100,35</text>
-<text data-kind="ground-level" data-point-id="P2" transform="translate(134.5 22.5) rotate(-90)" text-anchor="middle">103,00</text>
-<text data-kind="natural-ground" data-point-id="P2" transform="translate(134.5 37.5) rotate(-90)" text-anchor="middle">—</text>
-<text data-kind="point-name" data-point-id="P2" transform="translate(134.5 121) rotate(-90)" text-anchor="middle">P2 / УП1</text>
-<text data-kind="station" data-point-id="P2" transform="translate(134.5 141) rotate(-90)" text-anchor="middle">ПК 1+20,00</text>
-<path d="M 136.0,0 V 45 M 136.0,99 V 151" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="bottom-level" data-point-id="P3" transform="translate(174.5 7.5) rotate(-90)" text-anchor="middle">100,55</text>
-<text data-kind="ground-level" data-point-id="P3" transform="translate(174.5 22.5) rotate(-90)" text-anchor="middle">103,40</text>
-<text data-kind="natural-ground" data-point-id="P3" transform="translate(174.5 37.5) rotate(-90)" text-anchor="middle">—</text>
-<text data-kind="point-name" data-point-id="P3" transform="translate(174.5 121) rotate(-90)" text-anchor="middle">P3 / УП2</text>
-<text data-kind="station" data-point-id="P3" transform="translate(174.5 141) rotate(-90)" text-anchor="middle">ПК 2+00,00</text>
-<path d="M 176.0,0 V 45 M 176.0,99 V 151" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="bottom-level" data-point-id="P4" transform="translate(214.5 7.5) rotate(-90)" text-anchor="middle">100,75</text>
-<text data-kind="ground-level" data-point-id="P4" transform="translate(214.5 22.5) rotate(-90)" text-anchor="middle">103,80</text>
-<text data-kind="natural-ground" data-point-id="P4" transform="translate(214.5 37.5) rotate(-90)" text-anchor="middle">—</text>
-<text data-kind="point-name" data-point-id="P4" transform="translate(214.5 121) rotate(-90)" text-anchor="middle">P4</text>
-<text data-kind="station" data-point-id="P4" transform="translate(214.5 141) rotate(-90)" text-anchor="middle">ПК 2+80,00</text>
-<path d="M 216.0,0 V 45 M 216.0,99 V 151" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="bottom-level" data-point-id="P5" transform="translate(254.5 7.5) rotate(-90)" text-anchor="middle">100,95</text>
-<text data-kind="ground-level" data-point-id="P5" transform="translate(254.5 22.5) rotate(-90)" text-anchor="middle">104,00</text>
-<text data-kind="natural-ground" data-point-id="P5" transform="translate(254.5 37.5) rotate(-90)" text-anchor="middle">—</text>
-<text data-kind="point-name" data-point-id="P5" transform="translate(254.5 121) rotate(-90)" text-anchor="middle">P5</text>
-<text data-kind="station" data-point-id="P5" transform="translate(254.5 141) rotate(-90)" text-anchor="middle">ПК 3+60,00</text>
-<path d="M 256.0,0 V 45 M 256.0,99 V 151" fill="none" stroke="black" stroke-width="0.35"/>
+  <text data-kind="bottom-level" data-point-id="P0" data-cell="70 0 91.0 15" x="0" y="0"
+      text-anchor="middle" transform="translate(74.5 7.5) rotate(-90)">99,95</text>
+<text data-kind="ground-level" data-point-id="P0" data-cell="70 15 91.0 30" x="0" y="0"
+      text-anchor="middle" transform="translate(74.5 22.5) rotate(-90)">102,40</text>
+<text data-kind="natural-ground" data-point-id="P0" data-cell="70 30 91.0 45" x="74.5" y="37.5"
+      text-anchor="end" >—</text>
+<text data-kind="station" data-point-id="P0" data-cell="70 131 91.0 154" x="0" y="0"
+      text-anchor="middle" transform="translate(74.5 142.5) rotate(-90)">ПК 0+00,00</text>
+<text data-kind="point-name" data-point-id="P0" data-cell="70 111 261.0 131" x="74.5" y="115.5"
+      text-anchor="end" >P0</text>
+<path d="M 76.0,0 V 45 M 76.0,99 V 154" fill="none" stroke="black" stroke-width="0.35"/>
+<text data-kind="bottom-level" data-point-id="P1" data-cell="91.0 0 121.0 15" x="0" y="0"
+      text-anchor="middle" transform="translate(104.5 7.5) rotate(-90)">100,15</text>
+<text data-kind="ground-level" data-point-id="P1" data-cell="91.0 15 121.0 30" x="0" y="0"
+      text-anchor="middle" transform="translate(104.5 22.5) rotate(-90)">102,80</text>
+<text data-kind="natural-ground" data-point-id="P1" data-cell="91.0 30 121.0 45" x="104.5" y="37.5"
+      text-anchor="end" >—</text>
+<text data-kind="station" data-point-id="P1" data-cell="91.0 131 121.0 154" x="0" y="0"
+      text-anchor="middle" transform="translate(104.5 142.5) rotate(-90)">ПК 0+60,00</text>
+<text data-kind="point-name" data-point-id="P1" data-cell="70 111 261.0 131" x="104.5" y="115.5"
+      text-anchor="end" >P1</text>
+<path d="M 106.0,0 V 45 M 106.0,99 V 154" fill="none" stroke="black" stroke-width="0.35"/>
+<text data-kind="bottom-level" data-point-id="P2" data-cell="121.0 0 156.0 15" x="0" y="0"
+      text-anchor="middle" transform="translate(134.5 7.5) rotate(-90)">100,35</text>
+<text data-kind="ground-level" data-point-id="P2" data-cell="121.0 15 156.0 30" x="0" y="0"
+      text-anchor="middle" transform="translate(134.5 22.5) rotate(-90)">103,00</text>
+<text data-kind="natural-ground" data-point-id="P2" data-cell="121.0 30 156.0 45" x="134.5" y="37.5"
+      text-anchor="end" >—</text>
+<text data-kind="station" data-point-id="P2" data-cell="121.0 131 156.0 154" x="0" y="0"
+      text-anchor="middle" transform="translate(134.5 142.5) rotate(-90)">ПК 1+20,00</text>
+<text data-kind="point-name" data-point-id="P2" data-cell="70 111 261.0 131" x="134.5" y="115.5"
+      text-anchor="end" >P2 / УП1</text>
+<path d="M 136.0,0 V 45 M 136.0,99 V 154" fill="none" stroke="black" stroke-width="0.35"/>
+<text data-kind="bottom-level" data-point-id="P3" data-cell="156.0 0 196.0 15" x="0" y="0"
+      text-anchor="middle" transform="translate(174.5 7.5) rotate(-90)">100,55</text>
+<text data-kind="ground-level" data-point-id="P3" data-cell="156.0 15 196.0 30" x="0" y="0"
+      text-anchor="middle" transform="translate(174.5 22.5) rotate(-90)">103,40</text>
+<text data-kind="natural-ground" data-point-id="P3" data-cell="156.0 30 196.0 45" x="174.5" y="37.5"
+      text-anchor="end" >—</text>
+<text data-kind="station" data-point-id="P3" data-cell="156.0 131 196.0 154" x="0" y="0"
+      text-anchor="middle" transform="translate(174.5 142.5) rotate(-90)">ПК 2+00,00</text>
+<text data-kind="point-name" data-point-id="P3" data-cell="70 111 261.0 131" x="174.5" y="115.5"
+      text-anchor="end" >P3 / УП2</text>
+<path d="M 176.0,0 V 45 M 176.0,99 V 154" fill="none" stroke="black" stroke-width="0.35"/>
+<text data-kind="bottom-level" data-point-id="P4" data-cell="196.0 0 236.0 15" x="0" y="0"
+      text-anchor="middle" transform="translate(214.5 7.5) rotate(-90)">100,75</text>
+<text data-kind="ground-level" data-point-id="P4" data-cell="196.0 15 236.0 30" x="0" y="0"
+      text-anchor="middle" transform="translate(214.5 22.5) rotate(-90)">103,80</text>
+<text data-kind="natural-ground" data-point-id="P4" data-cell="196.0 30 236.0 45" x="214.5" y="37.5"
+      text-anchor="end" >—</text>
+<text data-kind="station" data-point-id="P4" data-cell="196.0 131 236.0 154" x="0" y="0"
+      text-anchor="middle" transform="translate(214.5 142.5) rotate(-90)">ПК 2+80,00</text>
+<text data-kind="point-name" data-point-id="P4" data-cell="70 111 261.0 131" x="214.5" y="115.5"
+      text-anchor="end" >P4</text>
+<path d="M 216.0,0 V 45 M 216.0,99 V 154" fill="none" stroke="black" stroke-width="0.35"/>
+<text data-kind="bottom-level" data-point-id="P5" data-cell="236.0 0 261.0 15" x="0" y="0"
+      text-anchor="middle" transform="translate(254.5 7.5) rotate(-90)">100,95</text>
+<text data-kind="ground-level" data-point-id="P5" data-cell="236.0 15 261.0 30" x="0" y="0"
+      text-anchor="middle" transform="translate(254.5 22.5) rotate(-90)">104,00</text>
+<text data-kind="natural-ground" data-point-id="P5" data-cell="236.0 30 261.0 45" x="254.5" y="37.5"
+      text-anchor="end" >—</text>
+<text data-kind="station" data-point-id="P5" data-cell="236.0 131 261.0 154" x="0" y="0"
+      text-anchor="middle" transform="translate(254.5 142.5) rotate(-90)">ПК 3+60,00</text>
+<text data-kind="point-name" data-point-id="P5" data-cell="70 111 261.0 131" x="254.5" y="115.5"
+      text-anchor="end" >P5</text>
+<path d="M 256.0,0 V 45 M 256.0,99 V 154" fill="none" stroke="black" stroke-width="0.35"/>
   <path data-kind="slope-line" d="M 76.0,99 L 106.0,77" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="slope" data-start-id="P0" data-end-id="P1" x="91.0" y="81" text-anchor="middle">3,33</text>
-<text data-kind="slope-length" data-start-id="P0" data-end-id="P1" x="91.0" y="96" text-anchor="middle">60,00</text>
-<text data-kind="distance" data-start-id="P0" data-end-id="P1" x="91.0" y="107" text-anchor="middle">60,00</text>
+<text data-kind="slope" data-start-id="P0" data-end-id="P1" data-cell="76.0 77 106.0 99" x="77.0" y="81.5"
+      text-anchor="start" >3,3</text>
+<text data-kind="slope-length" data-start-id="P0" data-end-id="P1" data-cell="76.0 77 106.0 99" x="105.0" y="98.0"
+      text-anchor="end" >60,00</text>
+<text data-kind="distance" data-start-id="P0" data-end-id="P1" data-cell="76.0 99 106.0 111" x="91.0" y="103.5"
+      text-anchor="middle" >60,00</text>
 <line data-kind="slope-divider" x1="106.0" x2="106.0" y1="77" y2="99" stroke="black" stroke-width="0.35"/>
 <path data-kind="slope-line" d="M 106.0,99 L 136.0,77" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="slope" data-start-id="P1" data-end-id="P2" x="121.0" y="81" text-anchor="middle">3,33</text>
-<text data-kind="slope-length" data-start-id="P1" data-end-id="P2" x="121.0" y="96" text-anchor="middle">60,00</text>
-<text data-kind="distance" data-start-id="P1" data-end-id="P2" x="121.0" y="107" text-anchor="middle">60,00</text>
+<text data-kind="slope" data-start-id="P1" data-end-id="P2" data-cell="106.0 77 136.0 99" x="107.0" y="81.5"
+      text-anchor="start" >3,3</text>
+<text data-kind="slope-length" data-start-id="P1" data-end-id="P2" data-cell="106.0 77 136.0 99" x="135.0" y="98.0"
+      text-anchor="end" >60,00</text>
+<text data-kind="distance" data-start-id="P1" data-end-id="P2" data-cell="106.0 99 136.0 111" x="121.0" y="103.5"
+      text-anchor="middle" >60,00</text>
 <line data-kind="slope-divider" x1="136.0" x2="136.0" y1="77" y2="99" stroke="black" stroke-width="0.35"/>
 <path data-kind="slope-line" d="M 136.0,99 L 176.0,77" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="slope" data-start-id="P2" data-end-id="P3" x="156.0" y="81" text-anchor="middle">2,50</text>
-<text data-kind="slope-length" data-start-id="P2" data-end-id="P3" x="156.0" y="96" text-anchor="middle">80,00</text>
-<text data-kind="distance" data-start-id="P2" data-end-id="P3" x="156.0" y="107" text-anchor="middle">80,00</text>
+<text data-kind="slope" data-start-id="P2" data-end-id="P3" data-cell="136.0 77 176.0 99" x="137.0" y="81.5"
+      text-anchor="start" >2,5</text>
+<text data-kind="slope-length" data-start-id="P2" data-end-id="P3" data-cell="136.0 77 176.0 99" x="175.0" y="98.0"
+      text-anchor="end" >80,00</text>
+<text data-kind="distance" data-start-id="P2" data-end-id="P3" data-cell="136.0 99 176.0 111" x="156.0" y="103.5"
+      text-anchor="middle" >80,00</text>
 <line data-kind="slope-divider" x1="176.0" x2="176.0" y1="77" y2="99" stroke="black" stroke-width="0.35"/>
 <path data-kind="slope-line" d="M 176.0,99 L 216.0,77" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="slope" data-start-id="P3" data-end-id="P4" x="196.0" y="81" text-anchor="middle">2,50</text>
-<text data-kind="slope-length" data-start-id="P3" data-end-id="P4" x="196.0" y="96" text-anchor="middle">80,00</text>
-<text data-kind="distance" data-start-id="P3" data-end-id="P4" x="196.0" y="107" text-anchor="middle">80,00</text>
+<text data-kind="slope" data-start-id="P3" data-end-id="P4" data-cell="176.0 77 216.0 99" x="177.0" y="81.5"
+      text-anchor="start" >2,5</text>
+<text data-kind="slope-length" data-start-id="P3" data-end-id="P4" data-cell="176.0 77 216.0 99" x="215.0" y="98.0"
+      text-anchor="end" >80,00</text>
+<text data-kind="distance" data-start-id="P3" data-end-id="P4" data-cell="176.0 99 216.0 111" x="196.0" y="103.5"
+      text-anchor="middle" >80,00</text>
 <line data-kind="slope-divider" x1="216.0" x2="216.0" y1="77" y2="99" stroke="black" stroke-width="0.35"/>
 <path data-kind="slope-line" d="M 216.0,99 L 256.0,77" fill="none" stroke="black" stroke-width="0.35"/>
-<text data-kind="slope" data-start-id="P4" data-end-id="P5" x="236.0" y="81" text-anchor="middle">2,50</text>
-<text data-kind="slope-length" data-start-id="P4" data-end-id="P5" x="236.0" y="96" text-anchor="middle">80,00</text>
-<text data-kind="distance" data-start-id="P4" data-end-id="P5" x="236.0" y="107" text-anchor="middle">80,00</text>
-  <g font-family="DejaVu Sans" text-anchor="middle">
-    <text data-kind="pipe-description" x="166.0" y="51" font-size="7">В1 — Труба ПЭ 100</text>
-    <text x="166.0" y="57" font-size="7">SDR 17 ⌀110×6,6</text>
-    <text x="166.0" y="63">Без изоляции</text>
+<text data-kind="slope" data-start-id="P4" data-end-id="P5" data-cell="216.0 77 256.0 99" x="217.0" y="81.5"
+      text-anchor="start" >2,5</text>
+<text data-kind="slope-length" data-start-id="P4" data-end-id="P5" data-cell="216.0 77 256.0 99" x="255.0" y="98.0"
+      text-anchor="end" >80,00</text>
+<text data-kind="distance" data-start-id="P4" data-end-id="P5" data-cell="216.0 99 256.0 111" x="236.0" y="103.5"
+      text-anchor="middle" >80,00</text>
+  <g font-family="DejaVu Sans" text-anchor="middle" font-size="3.5">
+    <text data-kind="pipe-description" data-cell="70 45 261.0 65" x="165.5" y="53">Труба полиэтиленовая ПЭ 100 SDR 17 ⌀110×6,6</text>
+    <text data-kind="insulation" data-cell="70 45 261.0 65" x="165.5" y="60">Без изоляции</text>
   </g>
-  <text data-kind="horizontal-scale" x="0" y="-20">М 1:2000 по горизонтали</text>
-  <text data-kind="vertical-scale" x="0" y="-13">М 1:100 по вертикали</text>
-  <text x="0" y="-6">УГ 98,17</text>
+  <text data-kind="scale-title" x="0" y="-27">Масштаб:</text>
+
+<text data-kind="horizontal-scale" x="0" y="-20">по горизонтали 1:2000</text>
+
+<text data-kind="vertical-scale" x="0" y="-13">по вертикали 1:100</text>
+
+<text data-kind="datum" x="0" y="-6">УГ 99,45</text>
+
 </g>
 
 

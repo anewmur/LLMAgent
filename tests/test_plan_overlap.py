@@ -34,9 +34,25 @@ def test_overlap_checks_label_pairs_and_diagonal_route(route_data, tmp_path, con
 
     assert all(check.name == "plan_label_overlap" and check.status == Status.WARNING for check in checks.results)
     messages = [check.message for check in checks.results]
-    assert any('пересекаются подписи "P1" и "ПК"' in message for message in messages)
+    assert any('пересекаются или слишком близки подписи "P1" и "ПК"' in message for message in messages)
     assert any('подпись "P1" пересекает трассу' in message for message in messages)
     assert not any("FAR" in message or "ROTATED" in message for message in messages)
+
+
+def test_pipe_shelf_rectangle_participates_in_overlap_check(route_data, tmp_path, config):
+    project, problems = validate_input(route_data)
+    assert not problems
+    documents = DocumentSet(project, config)
+    root = ET.fromstring(PlanDrawing(project, documents.get(DocumentId.PLAN)).render())
+    shelf = root.find(".//s:g[@data-kind='pipe-label']", NS)
+    left, top, right, bottom = map(float, shelf.get("data-bounds").split())
+    name = root.find(".//s:text[@data-kind='point-name']", NS)
+    name.set("x", str((left + right) / 2))
+    name.set("y", str((top + bottom) / 2))
+    checks = PlanChecks(CheckContext(project, documents, tmp_path))
+    checks.roots[DocumentId.PLAN] = root
+    checks.check_plan_label_overlap()
+    assert any(check.status == Status.WARNING and "полка трубы" in check.message for check in checks.results)
 
 
 def test_reference_is_clear_and_close_points_publish_and_commit_warning(input_file, tmp_path, config):
@@ -64,7 +80,7 @@ def test_reference_is_clear_and_close_points_publish_and_commit_warning(input_fi
     assert "Результат выпуска: **warning**" in report
     assert "Предупреждение" in report and "plan_label_overlap" in report
     assert "Подписи на плане размещаются по простым правилам. Пересечения обнаруживаются приближённо (по оценке габаритов текста) и не исправляются автоматически." in report
-    assert "transform rotate автоматически не проверяются на пересечения" in report
+    assert "transform rotate автоматически не проверяются на пересечения" not in report
     published = ET.parse(folder / "plan.svg").getroot()
     expected = ET.fromstring(PlanDrawing(session.project, DocumentSet(session.project, config).get(DocumentId.PLAN)).render())
     assert ET.tostring(published.find("s:g[@id='route-labels']", NS)) == ET.tostring(expected.find("s:g[@id='route-labels']", NS))
@@ -93,7 +109,7 @@ def test_slanted_length_label_keeps_gap_from_route(input_file, tmp_path, config)
                      / math.dist(start, end) for corner_x in (left, right) for corner_y in (top, bottom)]
         assert min(distances) >= PLAN_LENGTH_OFFSET_MM - 1e-6, label.text
         farthest[label.get("data-start-id")] = max(distances)
-    # Повёрнутую подпись трубы у самого длинного участка P2–P3 проверка пересечений не видит.
-    pipe = root.find(".//s:text[@data-kind='pipe-label']", NS)
-    assert "translate" in pipe.get("transform")
-    assert float(pipe.get("y")) - PLAN_FONT_SIZE_MM >= farthest["P2"] + PLAN_LENGTH_OFFSET_MM - 1e-6
+    pipe = root.find(".//s:g[@data-kind='pipe-label']", NS)
+    pipe_bounds = tuple(map(float, pipe.get("data-bounds").split()))
+    for label in root.findall(".//s:text[@data-kind='length']", NS):
+        assert not PlanChecks.rectangles_overlap(pipe_bounds, PlanChecks.plan_label_bounds(label, PLAN_FONT_SIZE_MM))

@@ -31,7 +31,7 @@ def test_with_pipe_copies_fields_and_synchronizes_material(route_data):
                              wall_mm=9.5, sdr=17, standard="ТУ TEST")
 
     assert data["pipe"] == {"material": "ПЭ 100", "outer_diameter_mm": 160,
-                            "wall_mm": 9.5, "sdr": 17, "standard": "ТУ TEST"}
+                            "wall_mm": 9.5, "sdr": 17, "standard": "ТУ TEST", "insulation": None}
     assert data["object"]["pipe_material"] == "ПЭ 100"
     assert project.with_pipe(material="ПЭ 80")["object"]["pipe_material"] == "ПЭ 80"
     assert project.model_dump() == original

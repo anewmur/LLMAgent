@@ -165,6 +165,7 @@ def test_missing_axis_is_clarified_before_documents_are_released(route_data, wri
         response(tool_name=ToolName.RELEASE_DOCUMENTS.value),
         response(content="В точке P3 нет отметки оси трубы. Укажите отметку."),
         response(tool_name=ToolName.UPDATE_POINT.value, arguments='{"name":"P3","axis":100.6}', call_id="call_2"),
+        response(tool_name=ToolName.RELEASE_DOCUMENTS.value, call_id="call_3"),
         response(content="Отметка оси P3: не задана → 100,60 м. Комплект выпущен."),
     ]
     handlers = {ToolName.RELEASE_DOCUMENTS: session.release, ToolName.UPDATE_POINT: session.update_point}
@@ -185,7 +186,7 @@ def test_missing_axis_is_clarified_before_documents_are_released(route_data, wri
     ]
     assert session.project.points[3].axis == 100.6 and not session.problems
     assert (folder / "pdf/package.pdf").is_file() and (folder / "changes.md").is_file()
-    assert [entry["tool"] for entry in session.tool_log] == ["release_documents", "update_point"]
+    assert [entry["tool"] for entry in session.tool_log] == ["release_documents", "update_point", "release_documents"]
     assert [message["content"] for message in agent.messages if message["role"] == "user"] == [
         "Выпусти комплект документов", "У P3 отметка оси 100,6 м",
     ]
@@ -323,3 +324,56 @@ def test_agent_clarifies_bend_and_repeats_rejected_point_addition(route_data, wr
     assert [point.id for point in session.project.points] == ["P0", "P1a", "P2"]
     assert [(bend.at, bend.angle_deg) for bend in session.project.bends] == [("P1a", 90)]
     assert session.tool_log[1]["result"]["status"] in ("ok", "warning")
+
+
+def test_release_request_loads_then_releases_and_reports_real_warnings(input_file, tmp_path, config):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    client = Mock()
+    def final_response(**arguments):
+        tools = [message for message in arguments["messages"] if message["role"] == "tool"]
+        result = json.loads(tools[-1]["content"])
+        warnings = "\n".join(problem["message"] for problem in result["problems"])
+        return response(content="Документы выпущены.\n" + warnings + "\nИсточник: release_documents (вопрос 1)")
+    client.chat.completions.create.side_effect = [
+        response(tool_name="load_route", arguments=json.dumps({"path": "input/examples/thick_plan.json"})),
+        response(tool_name="release_documents", call_id="release"), final_response,
+    ]
+    # Mock.side_effect не вызывает вложенную функцию; последний ответ получает общий журнал сообщений.
+    answers = iter(client.chat.completions.create.side_effect)
+    def complete(**arguments):
+        answer = next(answers)
+        return answer(**arguments) if callable(answer) else answer
+    client.chat.completions.create.side_effect = complete
+    agent = RouteAgent(client, {ToolName.LOAD_ROUTE: session.load_route,
+                                ToolName.RELEASE_DOCUMENTS: session.release}, SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"))
+    answer = agent.ask("Выпусти документы для трассы input/examples/thick_plan.json")
+    calls = [entry for entry in agent.tool_log if "tool" in entry]
+    assert [entry["tool"] for entry in calls] == [ToolName.LOAD_ROUTE, ToolName.RELEASE_DOCUMENTS]
+    assert calls[0]["result"]["status"] == "warning"
+    problems = calls[-1]["result"]["problems"]
+    assert problems and all(problem["message"] in answer for problem in problems)
+    assert calls[0]["result"]["problems"] == problems
+    report = (session.output_dir / "check_report.md").read_text(encoding="utf-8")
+    assert all(problem["code"] in report and problem["message"] in report for problem in problems)
+    assert not any("warning" in entry for entry in agent.tool_log)
+
+
+@pytest.mark.parametrize("status, warning", [(None, True), ("error", True), ("warning", False), ("ok", False)])
+def test_release_claim_requires_success_in_current_turn(status, warning, capsys):
+    client = Mock()
+    client.chat.completions.create.return_value = response(content="Документы выпущены.")
+    agent = RouteAgent(client, {}, "Помощник")
+    if status:
+        agent.tool_log.append({"turn": 1, "tool": ToolName.RELEASE_DOCUMENTS, "result": {"status": status}})
+    agent.ask("Выпусти документы")
+    assert ("WARNING" in capsys.readouterr().out) == warning
+    agent.ask("Выпусти ещё раз")
+    assert "WARNING" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("text", ["Документы не выпущены.", "Документы будут обновлены.", "Отметка обновлена."])
+def test_release_warning_does_not_treat_negation_future_or_data_edit_as_release(text, capsys):
+    client = Mock()
+    client.chat.completions.create.return_value = response(content=text)
+    RouteAgent(client, {}, "Помощник").ask("Вопрос")
+    assert "WARNING" not in capsys.readouterr().out

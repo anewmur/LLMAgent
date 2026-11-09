@@ -2,10 +2,11 @@
    font-family="${font_family}" font-size="${font_size}" fill="black">
   <!-- ${network_code} принято условно. -->
   <text x="0" y="0" font-size="${font_size}">Условные обозначения</text>
-  <path data-kind="pipe-symbol" d="M 0,10 H 25" fill="none" stroke="black"
+  ${double_symbols}
+  <path display="${single_display}" data-kind="pipe-symbol" d="M 0,10 H 25" fill="none" stroke="black"
         stroke-width="${line_width}" stroke-dasharray="${line_dasharray}"/>
   <text x="32" y="11">${network_code} — проектируемый подземный водопровод</text>
-  <path data-kind="bend-symbol" d="M 0,23 H 17 V 16" fill="none" stroke="black"
+  <path display="${single_display}" data-kind="bend-symbol" d="M 0,23 H 17 V 16" fill="none" stroke="black"
         stroke-width="${line_width}" stroke-dasharray="${line_dasharray}" stroke-linejoin="miter"/>
   <text x="32" y="24">УП — угол поворота, отвод</text>
   <text x="0" y="37">P0…Pn</text>

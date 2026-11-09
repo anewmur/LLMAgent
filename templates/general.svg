@@ -4,7 +4,7 @@
     <text x="30" y="92">Ведомость основных комплектов рабочих чертежей</text>
     <text x="230" y="32">Ведомость ссылочных и прилагаемых документов</text>
     <text x="30" y="143">Общие указания</text>
-    <text x="230" y="185">Принятые допущения</text>
+    <text x="230" y="171">Принятые допущения</text>
   </g>
   <g id="drawing-register" transform="translate(30 37)">${drawings}</g>
   <g transform="translate(30 97)">${sets}</g>

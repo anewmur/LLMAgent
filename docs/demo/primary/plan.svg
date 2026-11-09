@@ -70,8 +70,9 @@
         font-family="DejaVu Sans" font-size="5">УЧЕБНЫЙ КОМПЛЕКТ</text>
   <text id="paper-format" x="414" y="295.5" text-anchor="end"
         font-family="DejaVu Sans" font-size="2.5">Формат A3</text>
-<g id="route-geometry" data-scale="1000">
-<polyline id="route-line" points="77.5,171.0 137.5,171.0 197.5,171.0 197.5,91.0 277.5,91.0 357.5,91.0" fill="none" stroke="black" stroke-width="0.7" stroke-dasharray="6 2" stroke-linejoin="miter"/>
+<g id="route-geometry" data-scale="1000" data-line-count="1">
+<polyline id="route-line" points="77.5,171.0 137.5,171.0 197.5,171.0 197.5,91.0 277.5,91.0 357.5,91.0" display="inline" visibility="visible" fill="none" stroke="black" stroke-width="0.7" stroke-dasharray="6 2" stroke-linejoin="miter"/>
+
 <circle data-kind="point-marker" data-point-id="P0"
         cx="77.5" cy="171.0" r="0.75"
         fill="white" stroke="black" stroke-width="0.3"/>
@@ -99,7 +100,7 @@
 </g>
 <g id="route-labels" font-family="DejaVu Sans" font-size="3.5" fill="black">
 <g data-kind="point-label" data-point-id="P0">
-  
+
   <text data-kind="point-name" data-point-id="P0"
         x="81.5" y="156.0" text-anchor="start">P0</text>
   <text data-kind="station" data-point-id="P0"
@@ -110,7 +111,7 @@
 </g>
 
 <g data-kind="point-label" data-point-id="P1">
-  
+
   <text data-kind="point-name" data-point-id="P1"
         x="141.5" y="156.0" text-anchor="start">P1</text>
   <text data-kind="station" data-point-id="P1"
@@ -121,7 +122,7 @@
 </g>
 
 <g data-kind="point-label" data-point-id="P2">
-  
+
   <text data-kind="point-name" data-point-id="P2"
         x="193.5" y="156.0" text-anchor="end">P2 / УП1</text>
   <text data-kind="station" data-point-id="P2"
@@ -132,7 +133,7 @@
 </g>
 
 <g data-kind="point-label" data-point-id="P3">
-  
+
   <text data-kind="point-name" data-point-id="P3"
         x="201.5" y="76.0" text-anchor="start">P3 / УП2</text>
   <text data-kind="station" data-point-id="P3"
@@ -143,7 +144,7 @@
 </g>
 
 <g data-kind="point-label" data-point-id="P4">
-  
+
   <text data-kind="point-name" data-point-id="P4"
         x="273.5" y="76.0" text-anchor="end">P4</text>
   <text data-kind="station" data-point-id="P4"
@@ -154,7 +155,7 @@
 </g>
 
 <g data-kind="point-label" data-point-id="P5">
-  
+
   <text data-kind="point-name" data-point-id="P5"
         x="353.5" y="76.0" text-anchor="end">P5</text>
   <text data-kind="station" data-point-id="P5"
@@ -169,16 +170,24 @@
 <text data-kind="length" data-start-id="P2" data-end-id="P3" x="205.75" y="132.75" text-anchor="middle">80,00</text>
 <text data-kind="length" data-start-id="P3" data-end-id="P4" x="237.5" y="97.5" text-anchor="middle">80,00</text>
 <text data-kind="length" data-start-id="P4" data-end-id="P5" x="317.5" y="97.5" text-anchor="middle">80,00</text>
-<g><path d="M 197.5,127.5 h 8" stroke="black" stroke-width="0.2"/><text data-kind="pipe-label" font-size="3.5" x="207.5" y="126.3" text-anchor="start">В1 — ПЭ 100 SDR 17 ⌀110×6,6</text></g>
+<g data-kind="pipe-label" data-bounds="207.5 103.75 242.5 113.75"
+   font-family="DejaVu Sans" font-size="3.5" fill="black" stroke="none">
+  <path data-kind="pipe-leader" d="M 197.5,123.75 L 207.5,108.75 H 242.5"
+        fill="none" stroke="black" stroke-width="0.3"/>
+  <text data-kind="pipe-network" x="225.0" y="107.25" text-anchor="middle">В1</text>
+  <text data-kind="pipe-size" x="225.0" y="113.75" text-anchor="middle">⌀110×6,6</text>
+</g>
+
 </g>
 <g xmlns="http://www.w3.org/2000/svg" id="plan-legend" transform="translate(30 239)"
    font-family="DejaVu Sans" font-size="3.5" fill="black">
   <!-- В1 принято условно. -->
   <text x="0" y="0" font-size="3.5">Условные обозначения</text>
-  <path data-kind="pipe-symbol" d="M 0,10 H 25" fill="none" stroke="black"
+
+  <path display="inline" data-kind="pipe-symbol" d="M 0,10 H 25" fill="none" stroke="black"
         stroke-width="0.7" stroke-dasharray="6 2"/>
   <text x="32" y="11">В1 — проектируемый подземный водопровод</text>
-  <path data-kind="bend-symbol" d="M 0,23 H 17 V 16" fill="none" stroke="black"
+  <path display="inline" data-kind="bend-symbol" d="M 0,23 H 17 V 16" fill="none" stroke="black"
         stroke-width="0.7" stroke-dasharray="6 2" stroke-linejoin="miter"/>
   <text x="32" y="24">УП — угол поворота, отвод</text>
   <text x="0" y="37">P0…Pn</text>

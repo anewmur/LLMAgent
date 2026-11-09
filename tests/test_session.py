@@ -37,7 +37,7 @@ def test_release_returns_assumptions_from_report(route_data, write_route, tmp_pa
     assert [line.removeprefix("- ") for line in lines] == [item.full for item in items]
     key_items = [item for item in items if item.key]
     assert {item.id for item in key_items} == {
-        "coordinate_system", "network_ground", "bend_material", "profile_insulation", "missing_levels", "pipe_quantity",
+        "coordinate_system", "network_ground", "bend_material", "profile_insulation", "missing_levels", "pipe_quantity", "symbolic_bends",
     }
     assert result["assumptions"] == [item.short for item in key_items]
     root = ET.parse(session.output_dir / "general.svg").getroot()
@@ -45,8 +45,8 @@ def test_release_returns_assumptions_from_report(route_data, write_route, tmp_pa
     assert [block.get("data-assumption-id") for block in blocks] == [item.id for item in key_items]
     short_texts = [" ".join(" ".join(block.itertext()).split()) for block in blocks]
     assert short_texts == result["assumptions"]
-    assert len(lines) == len(items) == 27
-    assert len(blocks) == len(result["assumptions"]) == 6
+    assert len(lines) == len(items) == 28
+    assert len(blocks) == len(result["assumptions"]) == 7
     assert config["assumptions_footer"] in " ".join(root.itertext())
 
 
@@ -341,7 +341,9 @@ def test_load_route_replaces_project_and_resets_changes_and_font(input_file, tmp
 
     result = session.load_route("input/examples/route_2.json")
 
-    assert result == {"status": "ok", "object_name": "Учебный водопровод, трасса 2", "point_count": 5, "length_m": 250}
+    assert {key: result[key] for key in ("status", "object_name", "point_count", "length_m")} == {
+        "status": "ok", "object_name": "Учебный водопровод, трасса 2", "point_count": 5, "length_m": 250}
+    assert result["problems"] == [] and result["checks"]
     assert session.calculate_route_length()["length_m"] == 250
     assert session.changes == [] and session.font_size == DEFAULT_FONT_SIZE_MM
     assert session.tool_log is journal

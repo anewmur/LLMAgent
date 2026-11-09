@@ -5,4 +5,5 @@
   <path id="pipe-bottom-line" d="${bottom}" stroke-width="${pipe_line_width}"/>
   ${top}
 </g>
+${pipe_label}
 ${reference}

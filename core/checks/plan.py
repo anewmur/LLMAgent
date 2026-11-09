@@ -4,7 +4,9 @@ from core import drawing_settings as settings
 from core.checks.base import BaseChecks, NS
 from core.formatting import format_number, format_station
 from core.models import DocumentId, Level
-from core.tables import text_width
+from core.label_geometry import labels_too_close, rectangles_overlap, segment_crosses_rectangle, text_bounds
+from core.pipe_drawing import pipe_line_count
+from core.pipe_geometry import PipeContours
 
 
 class PlanChecks(BaseChecks):
@@ -68,20 +70,16 @@ class PlanChecks(BaseChecks):
     @staticmethod
     def plan_label_bounds(element, font_size):
         """Возвращает приближённые границы текста: слева, сверху, справа, снизу, в мм."""
-        width = text_width("".join(element.itertext()), font_size)
-        left = float(element.get("x"))
-        bottom = float(element.get("y"))
-        anchor = element.get("text-anchor", "start")
-        if anchor == "middle":
-            left -= width / 2
-        elif anchor == "end":
-            left -= width
-        return left, bottom - font_size, left + width, bottom
+        return text_bounds("".join(element.itertext()), float(element.get("x")), float(element.get("y")),
+                           font_size, element.get("text-anchor", "start"))
 
     def plan_labels(self, element, inherited_size, rotated=False):
         """Перебирает подписи с наследованием размера; трубу с rotate пропускает."""
         font_size = float(element.get("font-size", inherited_size))
         rotated = rotated or "rotate" in element.get("transform", "")
+        if element.get("data-kind") == "pipe-label" and element.get("data-bounds"):
+            yield '"' + " / ".join(element.itertext()).strip() + '" (полка трубы)', tuple(map(float, element.get("data-bounds").split()))
+            return
         if element.tag == f'{{{NS["s"]}}}text' and element.get("data-kind") in {
             "point-name", "station", "coordinates", "length", "pipe-label",
         }:
@@ -90,34 +88,8 @@ class PlanChecks(BaseChecks):
         for child in element:
             yield from self.plan_labels(child, font_size, rotated)
 
-    @staticmethod
-    def rectangles_overlap(bounds, other):
-        """Проверяет пересечение внутренних областей двух прямоугольников."""
-        return (bounds[0] < other[2] and bounds[2] > other[0]
-                and bounds[1] < other[3] and bounds[3] > other[1])
-
-    @staticmethod
-    def segment_crosses_rectangle(start, end, bounds):
-        """Проверяет вход отрезка внутрь прямоугольника отсечением по двум осям."""
-        if bounds[0] >= bounds[2] or bounds[1] >= bounds[3]:
-            return False
-        entry, exit = 0.0, 1.0
-        for origin, finish, minimum, maximum in [
-            (start[0], end[0], bounds[0], bounds[2]),
-            (start[1], end[1], bounds[1], bounds[3]),
-        ]:
-            direction = finish - origin
-            if abs(direction) < settings.GEOMETRY_TOLERANCE_MM:
-                if not minimum < origin < maximum:
-                    return False
-            else:
-                first = (minimum - origin) / direction
-                second = (maximum - origin) / direction
-                entry = max(entry, min(first, second))
-                exit = min(exit, max(first, second))
-                if entry >= exit:
-                    return False
-        return entry < exit
+    rectangles_overlap = staticmethod(rectangles_overlap)
+    segment_crosses_rectangle = staticmethod(segment_crosses_rectangle)
 
     def check_plan_label_overlap(self):
         """Добавляет предупреждение для каждой пары подписей или подписи и участка."""
@@ -126,15 +98,20 @@ class PlanChecks(BaseChecks):
         labels = list(self.plan_labels(group, 0))
         line = root.find(".//s:polyline[@id='route-line']", NS)
         points = [tuple(map(float, point.split(","))) for point in line.get("points").split()]
+        scale = float(root.find("s:g[@id='route-geometry']", NS).get("data-scale", settings.PLAN_SCALE))
+        diameter = self.project.pipe.outer_diameter_mm / scale
         tolerance = float(line.get("stroke-width")) / 2
         warnings = []
         for index, (name, bounds) in enumerate(labels):
             for other_name, other_bounds in labels[index + 1:]:
-                if self.rectangles_overlap(bounds, other_bounds):
-                    warnings.append(f"План: пересекаются подписи {name} и {other_name}.")
+                if labels_too_close(bounds, other_bounds):
+                    warnings.append(f"План: пересекаются или слишком близки подписи {name} и {other_name}.")
             # Границы текста приблизительны: касания в пределах полутолщины линии не учитываем.
             inner_bounds = (bounds[0] + tolerance, bounds[1] + tolerance,
                             bounds[2] - tolerance, bounds[3] - tolerance)
+            if pipe_line_count(self.project.pipe.outer_diameter_mm, scale) == 2:
+                inner_bounds = (inner_bounds[0] - diameter / 2, inner_bounds[1] - diameter / 2,
+                                inner_bounds[2] + diameter / 2, inner_bounds[3] + diameter / 2)
             for section, start, end in zip(self.geometry["sections"], points, points[1:]):
                 if self.segment_crosses_rectangle(start, end, inner_bounds):
                     warnings.append(f'План: подпись {name} пересекает трассу на участке '
@@ -144,6 +121,39 @@ class PlanChecks(BaseChecks):
         if not warnings:
             self.add("plan_label_overlap", True, "Приближённая проверка не выявила пересечений подписей плана.")
 
+    def check_plan_pipe(self):
+        """Проверяет число контуров и подпись трубы по данным проекта."""
+        root = self.roots[DocumentId.PLAN]
+        group = root.find("s:g[@id='route-geometry']", NS)
+        scale = float(group.get("data-scale"))
+        count = pipe_line_count(self.project.pipe.outer_diameter_mm, scale)
+        contours = group.findall("s:g[@id='pipe-contours']/s:path", NS)
+        self.add("plan_pipe", len(contours) == (2 if count == 2 else 0),
+                 f"План: число линий трубы — {count}; диаметр на листе {format_number(self.project.pipe.outer_diameter_mm / scale)} мм.",
+                 reference=settings.PIPE_STYLE_REFERENCE)
+        self.check_pipe_label(DocumentId.PLAN)
+
+    def check_plan_bends(self):
+        """Проверяет место для касательных дуг в вершинах с отводами."""
+        group = self.roots[DocumentId.PLAN].find("s:g[@id='route-geometry']", NS)
+        scale = float(group.get("data-scale"))
+        count = pipe_line_count(self.project.pipe.outer_diameter_mm, scale)
+        if count == 1:
+            self.add("plan_bends", True, "Отводы показаны условными углами.", reference=settings.BEND_REFERENCE)
+            return
+        points = [tuple(map(float, pair.split(","))) for pair in group.find("s:polyline[@id='route-line']", NS).get("points").split()]
+        bend_ids = {bend.at for bend in self.project.bends}
+        indices = {index for index, point in enumerate(self.project.points) if point.id in bend_ids}
+        geometry = PipeContours(points, indices, self.project.pipe.outer_diameter_mm / scale)
+        crowded = [corner for corner in geometry.corners if corner.tangent > corner.available]
+        for corner in crowded:
+            self.add("plan_bends", False, settings.BEND_SPACE_WARNING.format(
+                point=self.project.points[corner.index].id, tangent=format_number(corner.tangent),
+                available=format_number(corner.available)), level=Level.WARNING, reference=settings.BEND_REFERENCE)
+        if not crowded:
+            self.add("plan_bends", True, "Для дуг отводов достаточно места на соседних участках.", reference=settings.BEND_REFERENCE)
+
     def run(self):
         """Выполняет проверки группы в прежнем порядке."""
-        return self.run_checks(self.check_plan_geometry, self.check_plan_labels, self.check_plan_coordinates, self.check_plan_label_overlap)
+        return self.run_checks(self.check_plan_geometry, self.check_plan_labels, self.check_plan_coordinates,
+                               self.check_plan_pipe, self.check_plan_bends, self.check_plan_label_overlap)

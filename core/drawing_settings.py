@@ -5,10 +5,37 @@ GEOMETRY_TOLERANCE_MM = 1e-7
 
 # Условное обозначение сети; принято по ГОСТ 21.206, п. 3.3.
 NETWORK_CODE = "В1"
-# Минимальный диаметр для двух контуров, мм листа; ГОСТ 21.704, п. 5.2.3.
-PROFILE_TWO_LINE_THRESHOLD_MM = 2
+# Минимальный диаметр для двух контуров, мм листа; ГОСТ 21.206-2012, п. 3.5.
+PIPE_TWO_LINE_THRESHOLD_MM = 2
+# Радиус по оси отвода в наружных диаметрах; учебное допущение при отсутствии радиуса во входе.
+BEND_RADIUS_FACTOR = 1.5
+# Показывать ось двухлинейной трубы; допускается не наносить по ГОСТ 21.206, п. 3.5.
+DRAW_PIPE_AXIS = True
+# Толщина и штрихи оси, мм листа; тонкая штрихпунктирная по ГОСТ 2.303, табл. 1.
+PIPE_AXIS_LINE_WIDTH_MM = 0.3
+PIPE_AXIS_DASHARRAY_MM = "10 3 0.3 3"
+# Толщина выноски и полки, мм листа; тонкая линия по ГОСТ 2.303.
+PIPE_LEADER_LINE_WIDTH_MM = 0.3
+# Ширина полки и запас по её концам, мм листа; подобраны визуально для рис. 3г ГОСТ 21.206.
+PIPE_SHELF_WIDTH_MM = 35
+PIPE_SHELF_PADDING_MM = 2
+# Отступы текста от полки и начала выноски от трубы, мм листа; подобраны визуально.
+PIPE_SHELF_TEXT_GAP_MM = 1.5
+PIPE_SHELF_SIDE_OFFSET_MM = 10
+PIPE_SHELF_VERTICAL_OFFSET_MM = 15
+# Нормативные ссылки для проверок изображения и обозначения трубы.
+PIPE_LINE_REFERENCE = "ГОСТ 21.206-2012, п. 3.5"
+PIPE_STYLE_REFERENCE = "ГОСТ 21.206-2012, пп. 3.5, 3.7"
+BEND_REFERENCE = "ГОСТ 21.206-2012, табл. 1, п. 8в, сноска *"
+PIPE_LABEL_REFERENCE = "ГОСТ 21.206-2012, пп. 3.8, 3.9, 3.11, рис. 3г"
+BEND_SPACE_WARNING = (
+    "План: отвод в {point}: касательная {tangent} мм больше половины соседнего участка "
+    "{available} мм; дуга не помещается, соединение показано углом."
+)
 # Базовый размер подписей, мм листа; выбран из ряда ГОСТ 2.304-81, п. 2.2.
 DEFAULT_FONT_SIZE_MM = 3.5
+# Шрифт полки трубы, мм листа; общий основной размер подписей.
+PIPE_LABEL_FONT_SIZE_MM = DEFAULT_FONT_SIZE_MM
 # Ряд размеров шрифта, мм листа; ГОСТ 2.304-81, п. 2.2.
 FONT_SIZES = (2.5, DEFAULT_FONT_SIZE_MM, 5, 7, 10, 14)
 # Коэффициенты размера названий, безразмерные; ГОСТ Р 21.101, п. 5.4.7.
@@ -26,7 +53,7 @@ PROFILE_BASE_ROW_BOTTOM_MM = 77
 PROFILE_SLOPE_ROW_BOTTOM_MM = 99
 PROFILE_DISTANCE_ROW_BOTTOM_MM = 111
 PROFILE_POINT_ROW_BOTTOM_MM = 131
-PROFILE_GRID_HEIGHT_MM = 151
+PROFILE_GRID_HEIGHT_MM = 154
 
 # Габариты A3, мм листа; геометрия единственного альбомного формата комплекта.
 SHEET_WIDTH_MM = 420
@@ -63,19 +90,15 @@ TRAINING_LABEL = "УЧЕБНЫЙ КОМПЛЕКТ"
 
 # Знаменатель масштаба, безразмерный; 1:1000 подобран визуально под эталонную трассу на A3.
 PLAN_SCALE = 1000
-# Знаменатель горизонтального масштаба профиля, безразмерный; 1:2000 подобран визуально под трассу на A3.
-PROFILE_HORIZONTAL_SCALE = 2000
 # Знаменатель вертикального масштаба профиля, безразмерный; 1:100 подобран визуально для читаемости перепадов отметок.
 PROFILE_VERTICAL_SCALE = 100
 
 # Верхняя граница рамки профиля, мм листа; геометрия A3: отступ 5 мм от края.
 PROFILE_FRAME_TOP_MM = SHEET_FRAME_TOP_MM
-# Зазоры над и под графиком профиля, мм листа; подобраны визуально для читаемости.
-PROFILE_VERTICAL_MARGIN_MM = 10
 # Отступ верха штампа от нижнего края, мм листа; геометрия A3: штамп 55 мм и нижнее поле 5 мм.
 PROFILE_TITLE_BLOCK_OFFSET_MM = SHEET_STAMP_BOTTOM_OFFSET_MM
 # Зазор между низом сетки и штампом, мм листа; подобран визуально.
-PROFILE_GRID_BOTTOM_GAP_MM = 5
+PROFILE_GRID_BOTTOM_GAP_MM = 2
 # Сумма полей для габарита профиля, мм листа; рамка A3 20+5 мм и два зазора по 5 мм.
 PROFILE_FIELD_HORIZONTAL_MARGINS_MM = 35
 # Левая граница рамки, мм листа; геометрия общего макета A3.
@@ -83,17 +106,15 @@ PROFILE_FRAME_LEFT_MM = SHEET_FRAME_LEFT_MM
 # Сумма левого и правого полей рамки, мм листа; геометрия A3: 20+5 мм.
 PROFILE_FRAME_HORIZONTAL_MARGINS_MM = SHEET_FRAME_HORIZONTAL_MARGINS_MM
 # Запас сетки справа от последней точки, мм листа; подобран визуально.
-PROFILE_GRID_RIGHT_PADDING_MM = 2
+PROFILE_GRID_RIGHT_PADDING_MM = 5
 # Подъём подписи глубины над поверхностью, мм листа; подобран визуально.
 PROFILE_DEPTH_LABEL_OFFSET_MM = 7
 # Основная линия трубы, мм листа; 1,0 выбрано из диапазона 0,5–1,4 ГОСТ 2.303-68, п. 5.
 PROFILE_PIPE_LINE_WIDTH_MM = 1.0
 # Тонкие линии сетки и проекций, мм листа; ГОСТ 2.303-68, п. 2, табл. 1: s/3–s/2 при s=1,0 мм.
 PROFILE_GRID_LINE_WIDTH_MM = 0.35
-# Запас длины вертикальной подписи относительно размера шрифта, безразмерный; подобран визуально.
-PROFILE_STATION_TEXT_HEIGHT_FACTOR = 4.5
-# Допустимая длина подписи пикета, мм листа; геометрия строки y=131..151 шаблона сетки.
-PROFILE_STATION_TEXT_HEIGHT_MM = 20
+# Допустимая длина подписи пикета, мм листа; высота строки шаблона за вычетом двух полей по 1 мм.
+PROFILE_STATION_TEXT_HEIGHT_MM = PROFILE_GRID_HEIGHT_MM - PROFILE_POINT_ROW_BOTTOM_MM - 2
 
 # Левая граница трассы, мм листа; рамка A3 на 20 мм плюс визуально выбранный зазор 10 мм.
 PLAN_FIELD_LEFT_MM = 30
@@ -195,7 +216,7 @@ GENERAL_TEXT_BOTTOM_MM = 233
 # Левая граница допущений, мм листа; совпадает с левой границей штампа A3.
 GENERAL_ASSUMPTIONS_LEFT_MM = 230
 # Первая базовая линия допущений, мм листа; подобрана визуально ниже правой ведомости.
-GENERAL_ASSUMPTIONS_TOP_MM = 194
+GENERAL_ASSUMPTIONS_TOP_MM = 180
 # Ширина допущений, мм листа; до x=410, с зазором 5 мм перед рамкой.
 GENERAL_ASSUMPTIONS_WIDTH_MM = 180
 # Зазор между абзацами общих данных, мм листа; подобран визуально при межстрочном шаге TEXT_LINE_STEP_MM.
@@ -213,3 +234,52 @@ SHEET_TITLE_LINE_STEP_MM = 4.5
 SHEET_TITLE_BASELINE_Y_MM = 35.5
 # Центр строки названия, мм в системе координат штампа; геометрия существующей ячейки основной надписи.
 SHEET_TITLE_CENTER_X_MM = 100
+
+# Ряд горизонтальных масштабов профиля; ГОСТ 21.704, табл. 2; для прототипа от 1:1000.
+PROFILE_HORIZONTAL_SCALES = (1000, 2000, 5000)
+# Зазор от самого низкого низа трубы до таблицы, мм листа; подобран визуально.
+PROFILE_LOWEST_PIPE_GAP_MM = 5
+# Нижняя граница зоны заголовка над профилем, мм листа; геометрия учебной надписи.
+PROFILE_TEXT_TOP_MM = 20
+# Отступы чисел от границ клетки и между разнесёнными строками, мм листа; подобраны визуально.
+PROFILE_CELL_PADDING_MM = 1
+PROFILE_TEXT_ROW_GAP_MM = 1
+# Допуск представления уклона целым числом, промилле; согласованное правило вывода.
+SLOPE_INTEGER_TOLERANCE = 0.05
+# Шаг перебора полки над землёй и зазор до препятствий, мм листа; подобраны визуально.
+PROFILE_SHELF_STEP_MM = 5
+PROFILE_SHELF_CLEARANCE_MM = 2
+# Максимальное число строк горизонтальных имён в клетке; подобрано под её высоту.
+PROFILE_POINT_NAME_ROWS = 3
+
+# Число пробных строк чисел в узкой клетке; подобрано по высотам строк таблицы.
+PROFILE_NUMBER_TEXT_ROWS = 2
+
+# Зазор точки выноски от габарита подписи длины, мм листа; подобран визуально.
+PLAN_LEADER_LENGTH_CLEARANCE_MM = 2
+# Поля текста строк спецификации сверху и снизу, мм листа; подобраны визуально.
+SPEC_ROW_VERTICAL_PADDING_MM = 1.5
+
+# Привязки к строкам шаблона сетки профиля, мм листа; геометрия формы 2.
+PROFILE_POINT_ORIGIN_MM = PROFILE_SIDEBAR_WIDTH_MM + 6
+PROFILE_LABEL_OFFSET_MM = 1.5
+PROFILE_BOTTOM_LEVEL_Y_MM = PROFILE_BOTTOM_LEVEL_ROW_BOTTOM_MM / 2
+PROFILE_GROUND_LEVEL_Y_MM = (PROFILE_BOTTOM_LEVEL_ROW_BOTTOM_MM + PROFILE_GROUND_ROW_BOTTOM_MM) / 2
+PROFILE_NATURAL_GROUND_Y_MM = (PROFILE_GROUND_ROW_BOTTOM_MM + PROFILE_NATURAL_GROUND_ROW_BOTTOM_MM) / 2
+# Отступ горизонтального имени от вертикали точки, мм листа; подобран визуально.
+PROFILE_POINT_NAME_OFFSET_MM = 1.5
+# Общий шаблон подписи масштаба профиля, без единиц.
+PROFILE_SCALE_TEXT = "по {direction} 1:{scale}"
+
+# Положение и шрифт учебной надписи, мм листа; общий шаблон Sheet.
+SHEET_TRAINING_X_MM = SHEET_WIDTH_MM / 2 + 7.5
+SHEET_TRAINING_Y_MM = 18
+SHEET_TRAINING_FONT_MM = 5
+
+# Минимальный зазор между прямоугольниками подписей, мм листа; подобран для читаемости.
+LABEL_MIN_GAP_MM = 1
+# Высота шапки ведомости, мм листа; принятый макет таблиц общих данных.
+REGISTER_HEADER_HEIGHT_MM = 15
+
+# Положения строк масштаба над сеткой, мм от верха таблицы; принятый макет профиля.
+PROFILE_SCALE_BASELINES_MM = (-27, -20, -13, -6)

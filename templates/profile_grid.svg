@@ -7,24 +7,21 @@
            M 0,${base_row_bottom} H ${width} M 0,${slope_row_bottom} H ${width} M 0,${distance_row_bottom} H ${width} M 0,${point_row_bottom} H ${width}"
         fill="none" stroke="black" stroke-width="${grid_line_width}"/>
   <g id="grid-headings">
-    <text x="2" y="4"><tspan x="2">Проектная отметка низа</tspan><tspan x="2" dy="5">трубы или низа лотка</tspan><tspan x="2" dy="5">колодца, м</tspan></text>
-    <text x="2" y="21"><tspan x="2">Проектная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
-    <text x="2" y="36"><tspan x="2">Натурная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
-    <text x="2" y="52"><tspan x="2">Обозначение трубы</tspan><tspan x="2" dy="6">и тип изоляции</tspan></text>
-    <text x="2" y="73">Основание</text>
-    <text x="2" y="86"><tspan x="2">Уклон, ‰;</tspan><tspan x="2" dy="6">длина, м</tspan></text>
-    <text x="2" y="107">Расстояние, м</text>
-    <text x="2" y="118"><tspan x="2">Номер колодца,</tspan><tspan x="2" dy="6">точки, угла поворота</tspan></text>
-    <text x="2" y="143">Пикеты</text>
+    <text data-cell="0 0 ${sidebar_width} ${bottom_level_row_bottom}" x="2" y="4"><tspan x="2">Проектная отметка низа</tspan><tspan x="2" dy="5">трубы или низа лотка</tspan><tspan x="2" dy="5">колодца, м</tspan></text>
+    <text data-cell="0 ${bottom_level_row_bottom} ${sidebar_width} ${ground_row_bottom}" x="2" y="21"><tspan x="2">Проектная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
+    <text data-cell="0 ${ground_row_bottom} ${sidebar_width} ${natural_ground_row_bottom}" x="2" y="36"><tspan x="2">Натурная отметка</tspan><tspan x="2" dy="6">земли, м</tspan></text>
+    <text data-cell="0 ${natural_ground_row_bottom} ${sidebar_width} ${pipe_row_bottom}" x="2" y="52"><tspan x="2">Обозначение трубы</tspan><tspan x="2" dy="6">и тип изоляции</tspan></text>
+    <text data-cell="0 ${pipe_row_bottom} ${sidebar_width} ${base_row_bottom}" x="2" y="73">Основание</text>
+    <text data-cell="0 ${base_row_bottom} ${sidebar_width} ${slope_row_bottom}" x="2" y="86"><tspan x="2">Уклон, ‰;</tspan><tspan x="2" dy="6">длина, м</tspan></text>
+    <text data-cell="0 ${slope_row_bottom} ${sidebar_width} ${distance_row_bottom}" x="2" y="107">Расстояние, м</text>
+    <text data-cell="0 ${distance_row_bottom} ${sidebar_width} ${point_row_bottom}" x="2" y="118"><tspan x="2">Номер колодца,</tspan><tspan x="2" dy="6">точки, угла поворота</tspan></text>
+    <text data-cell="0 ${point_row_bottom} ${sidebar_width} ${grid_height}" x="2" y="143">Пикеты</text>
   </g>
   ${values}
   ${sections}
-  <g font-family="${font_family}" text-anchor="middle">
-    <text data-kind="pipe-description" x="${middle}" y="51" font-size="${title_size}">${pipe_name}</text>
-    <text x="${middle}" y="57" font-size="${title_size}">${pipe_size}</text>
-    <text x="${middle}" y="63">Без изоляции</text>
+  <g font-family="${font_family}" text-anchor="middle" font-size="${font_size}">
+    <text data-kind="pipe-description" data-cell="${pipe_cell}" x="${middle}" y="53">${pipe_name}</text>
+    <text data-kind="insulation" data-cell="${pipe_cell}" x="${middle}" y="60">${insulation}</text>
   </g>
-  <text data-kind="horizontal-scale" x="0" y="-20">М 1:${horizontal_scale} по горизонтали</text>
-  <text data-kind="vertical-scale" x="0" y="-13">М 1:${vertical_scale} по вертикали</text>
-  <text x="0" y="-6">УГ ${datum}</text>
+  ${scale_labels}
 </g>

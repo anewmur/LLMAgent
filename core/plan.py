@@ -1,11 +1,13 @@
-from math import atan2, degrees, hypot
+from math import hypot
 from xml.sax.saxutils import escape, quoteattr, unescape
 
 from core import drawing_settings as settings
 from core.calculations import calculate_route_geometry
-from core.formatting import format_number, format_pipe_value, format_station
+from core.formatting import format_number, format_station
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
+from core.pipe_drawing import pipe_line_count, pipe_leader
+from core.pipe_geometry import PipeContours
 from core.tables import text_width
 from core.formatting import render_template
 
@@ -37,6 +39,10 @@ class PlanDrawing:
         self.sections = calculate_route_geometry(project.points)["sections"]
         self.bends = {bend.at: bend for bend in project.bends}
         self.bend_names = project.bend_names()
+        self.line_count = pipe_line_count(project.pipe.outer_diameter_mm, scale)
+        bend_indices = {index for index, point in enumerate(project.points) if point.id in self.bends}
+        self.pipe_geometry = PipeContours(self.coordinates, bend_indices, project.pipe.outer_diameter_mm / scale)
+        self.marker_coordinates = self.pipe_geometry.marker_points() if self.line_count == 2 else self.coordinates
 
     @property
     def field_width(self):
@@ -76,10 +82,11 @@ class PlanDrawing:
         """Возвращает SVG штриховой трубы и белых кружков в её вершинах."""
         points = " ".join(f"{sheet_x},{sheet_y}" for sheet_x, sheet_y in self.coordinates)
         return "\n".join([
-            f'<g id="route-geometry" data-scale="{self.scale}">',
-            f'<polyline id="route-line" points="{points}" fill="none" stroke="black" '
+            f'<g id="route-geometry" data-scale="{self.scale}" data-line-count="{self.line_count}">',
+            f'<polyline id="route-line" points="{points}" display="{"none" if self.line_count == 2 else "inline"}" visibility="{"hidden" if self.line_count == 2 else "visible"}" fill="none" stroke="black" '
             f'stroke-width="{settings.PLAN_ROUTE_LINE_WIDTH_MM}" '
             f'stroke-dasharray="{settings.PLAN_ROUTE_DASHARRAY_MM}" stroke-linejoin="miter"/>',
+            self.draw_pipe_contours() if self.line_count == 2 else "",
             self.draw_point_markers(),
             '</g>',
         ])
@@ -90,7 +97,7 @@ class PlanDrawing:
             "point_id": quoteattr(point.id), "point_x": sheet_x, "point_y": sheet_y,
             "radius": settings.POINT_MARKER_DIAMETER_MM / 2,
             "line_width": settings.POINT_MARKER_LINE_WIDTH_MM,
-        }) for point, (sheet_x, sheet_y) in zip(self.project.points, self.coordinates))
+        }) for point, (sheet_x, sheet_y) in zip(self.project.points, self.marker_coordinates))
 
     def point_title(self, point_id):
         """Возвращает экранированное имя точки с номером УП и непрямым углом."""
@@ -110,7 +117,7 @@ class PlanDrawing:
 
     def point_label_position(self, index):
         """Возвращает абсциссу подписи в мм листа и её SVG-выравнивание."""
-        sheet_x, sheet_y = self.coordinates[index]
+        sheet_x, sheet_y = self.marker_coordinates[index]
         neighbors = self.coordinates[max(0, index - 1):index + 2]
         upper = [(neighbor_x, neighbor_y) for neighbor_x, neighbor_y in neighbors if neighbor_y < sheet_y]
         # Подпись выше точки уводим от участка, направленного вверх.
@@ -150,7 +157,7 @@ class PlanDrawing:
         left = initial_x - width if anchor == "end" else initial_x
         left = max(settings.PLAN_FIELD_LEFT_MM, min(left, self.field_right - width))
         label_x = left + width if anchor == "end" else left
-        point_y = self.coordinates[index][1]
+        point_y = self.marker_coordinates[index][1]
         label_y = max(point_y, settings.PLAN_FIELD_TOP_MM + settings.PLAN_POINT_NAME_OFFSET_MM
                       + settings.PLAN_FONT_SIZE_MM)
         leader = ""
@@ -163,7 +170,7 @@ class PlanDrawing:
 
     def point_label_leader(self, index, left, label_y, width):
         """Возвращает короткую линию от края кружка к ближайшему краю сдвинутого блока."""
-        point_x, point_y = self.coordinates[index]
+        point_x, point_y = self.marker_coordinates[index]
         top = label_y - settings.PLAN_POINT_NAME_OFFSET_MM - settings.PLAN_FONT_SIZE_MM
         bottom = label_y - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM
         end_x = max(left, min(point_x, left + width))
@@ -179,55 +186,53 @@ class PlanDrawing:
             "end_x": end_x, "end_y": end_y, "line_width": settings.PLAN_PIPE_LEADER_WIDTH_MM,
         })
 
-    def pipe_label_text(self):
-        """Возвращает обозначение трубы с материалом, SDR, диаметром и стенкой."""
-        pipe = self.project.pipe
-        diameter = format_pipe_value(pipe.outer_diameter_mm)
-        wall = format_pipe_value(pipe.wall_mm)
-        sdr = format_pipe_value(pipe.sdr)
-        return f"{settings.NETWORK_CODE} — {pipe.material} SDR {sdr} ⌀{diameter}×{wall}"
+    def draw_pipe_contours(self):
+        """Возвращает два сплошных контура с дугами и необязательной осью."""
+        axis = ""
+        if settings.DRAW_PIPE_AXIS:
+            axis = render_template(TEMPLATES_DIR / "pipe_axis.svg", {
+                "path": self.pipe_geometry.path_data(0), "line_width": settings.PIPE_AXIS_LINE_WIDTH_MM,
+                "dasharray": settings.PIPE_AXIS_DASHARRAY_MM,
+            })
+        return render_template(TEMPLATES_DIR / "pipe_contours.svg", {
+            "left": self.pipe_geometry.path_data(self.pipe_geometry.diameter / 2),
+            "right": self.pipe_geometry.path_data(-self.pipe_geometry.diameter / 2),
+            "line_width": settings.PLAN_ROUTE_LINE_WIDTH_MM, "axis": axis,
+        })
 
     def draw_pipe_label(self):
-        """Возвращает SVG одной подписи трубы у самого длинного участка."""
+        """Возвращает общую полку с обозначением и размером у самого длинного участка."""
         index = max(range(len(self.sections)), key=lambda section_index: self.sections[section_index]["length_m"])
         start_x, start_y = self.coordinates[index]
         end_x, end_y = self.coordinates[index + 1]
-        angle = degrees(atan2(end_y - start_y, end_x - start_x))
-        offset = settings.PLAN_PIPE_LABEL_OFFSET_MM
-        if abs(angle) > 90:
-            angle += -180 if angle > 0 else 180
-        else:
-            # Подпись трубы на стороне подписи длины: ставим её за рамкой длины с тем же зазором.
-            length_text = format_number(self.sections[index]["length_m"])
-            length_far = settings.PLAN_LENGTH_OFFSET_MM + 2 * self.length_label_half_extent(index, length_text)
-            offset = max(offset, length_far + settings.PLAN_LENGTH_OFFSET_MM + settings.PLAN_FONT_SIZE_MM)
-        center_x, center_y = (start_x + end_x) / 2, (start_y + end_y) / 2
-        text = self.pipe_label_text()
-        if abs(end_x - start_x) < settings.GEOMETRY_TOLERANCE_MM:
-            return self.vertical_pipe_label(text, center_x, center_y)
-        return (
-            f'<text data-kind="pipe-label" text-anchor="middle" x="0" y="{offset:g}" '
-            f'transform="translate({center_x:g} {center_y:g}) rotate({angle:g})">'
-            f'{escape(text)}</text>'
-        )
-
-    def vertical_pipe_label(self, text, sheet_x, sheet_y):
-        """Возвращает SVG выноски трубы выше подписи длины вертикального участка."""
-        direction = 1 if sheet_x < self.field_center_x() else -1
-        anchor = "start" if direction == 1 else "end"
-        leader_y = sheet_y - settings.PLAN_FONT_SIZE_MM
-        return (
-            f'<g><path d="M {sheet_x},{leader_y} h {direction * settings.PLAN_PIPE_LEADER_LENGTH_MM}" '
-            f'stroke="black" stroke-width="{settings.PLAN_PIPE_LEADER_WIDTH_MM}"/>'
-            f'<text data-kind="pipe-label" font-size="{settings.PLAN_FONT_SIZE_MM}" '
-            f'x="{sheet_x + direction * settings.PLAN_PIPE_LEADER_TEXT_OFFSET_MM}" '
-            f'y="{leader_y - settings.PLAN_TEXT_BASELINE_OFFSET_MM}" text-anchor="{anchor}">{escape(text)}</text></g>'
-        )
+        length = hypot(end_x - start_x, end_y - start_y)
+        label = format_number(self.sections[index]["length_m"])
+        shift = min(text_width(label, settings.PLAN_FONT_SIZE_MM) / 2
+                    + settings.PLAN_LEADER_LENGTH_CLEARANCE_MM, length / 4)
+        target = ((start_x + end_x) / 2 + (end_x - start_x) / length * shift,
+                  (start_y + end_y) / 2 + (end_y - start_y) / length * shift)
+        direction = 1 if target[0] < self.field_center_x() else -1
+        vertical = abs(end_x - start_x) < abs(end_y - start_y)
+        shelf_y = target[1] - settings.PIPE_SHELF_VERTICAL_OFFSET_MM
+        if not vertical:
+            length_center = self.length_label_center(index, format_number(self.sections[index]["length_m"]))
+            shelf_y = max(target[1] + settings.PIPE_SHELF_VERTICAL_OFFSET_MM,
+                          length_center[1] + settings.PLAN_FONT_SIZE_MM / 2 + settings.PLAN_LENGTH_OFFSET_MM
+                          + settings.PIPE_LABEL_FONT_SIZE_MM + settings.PIPE_SHELF_TEXT_GAP_MM)
+        shelf = (target[0] + direction * settings.PIPE_SHELF_SIDE_OFFSET_MM, shelf_y)
+        return pipe_leader(self.project.pipe, target, shelf, direction)
 
     def draw_legend(self):
         """Возвращает SVG легенды, подставляя общий шрифт и настройки линии трассы."""
         return render_template(LEGEND_PATH, {
             "network_code": settings.NETWORK_CODE,
+            "single_display": "none" if self.line_count == 2 else "inline",
+            "double_symbols": render_template(TEMPLATES_DIR / "plan_legend_double.svg", {
+                "line_width": settings.PLAN_ROUTE_LINE_WIDTH_MM,
+                "axis_display": "inline" if settings.DRAW_PIPE_AXIS else "none",
+                "axis_width": settings.PIPE_AXIS_LINE_WIDTH_MM,
+                "axis_dash": settings.PIPE_AXIS_DASHARRAY_MM,
+            }) if self.line_count == 2 else "",
             "font_family": settings.FONT_FAMILY,
             "font_size": settings.PLAN_FONT_SIZE_MM,
             "line_width": settings.PLAN_ROUTE_LINE_WIDTH_MM,
@@ -251,7 +256,8 @@ class PlanDrawing:
         """Возвращает центр подписи длины с заданным зазором от участка до ближайшей точки её рамки."""
         (start_x, start_y), (end_x, end_y) = self.coordinates[index], self.coordinates[index + 1]
         normal_x, normal_y = self.segment_normal(index)
-        offset = settings.PLAN_LENGTH_OFFSET_MM + self.length_label_half_extent(index, text)
+        contour_offset = self.pipe_geometry.diameter / 2 if self.line_count == 2 else 0
+        offset = settings.PLAN_LENGTH_OFFSET_MM + contour_offset + self.length_label_half_extent(index, text)
         return (start_x + end_x) / 2 + normal_x * offset, (start_y + end_y) / 2 + normal_y * offset
 
     def draw_lengths(self):

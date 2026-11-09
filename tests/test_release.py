@@ -85,8 +85,8 @@ def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_dat
     project, problems = validate_input(route_data)
     assert not problems
     monkeypatch.setattr(release_module, "PlanDrawing", lambda project, document: PlanDrawing(project, document, scale=2000))
-    monkeypatch.setattr(release_module, "ProfileDrawing", lambda project, document, font_size: ProfileDrawing(
-        project, document, font_size, horizontal_scale=4000, vertical_scale=200,
+    monkeypatch.setattr(release_module, "ProfileDrawing", lambda project, document, config, font_size: ProfileDrawing(
+        project, document, config, font_size, horizontal_scale=4000, vertical_scale=200,
     ))
     folder = tmp_path / "output"
 
@@ -104,12 +104,13 @@ def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_dat
     assert geometry.get("data-horizontal-scale") == "4000"
     assert geometry.get("data-vertical-scale") == "200"
     assert geometry.find("s:path[@id='pipe-top-line']", NS) is None
-    assert profile.find(".//s:text[@data-kind='horizontal-scale']", NS).text == "М 1:4000 по горизонтали"
-    assert profile.find(".//s:text[@data-kind='vertical-scale']", NS).text == "М 1:200 по вертикали"
+    assert profile.find(".//s:text[@data-kind='horizontal-scale']", NS).text == "по горизонтали 1:4000"
+    assert profile.find(".//s:text[@data-kind='vertical-scale']", NS).text == "по вертикали 1:200"
     assert "Труба ⌀250 при 1:200 = 1,25 мм < 2 мм" in (folder / "check_report.md").read_text(encoding="utf-8")
     items = load_assumptions(config, project, 200)
-    assert items[-1].short == "Труба ⌀250 на профиле — одной линией"
-    assert items[-1].short not in result["assumptions"]
+    note = next(item for item in items if item.id == "pipe_note")
+    assert note.short == "Труба ⌀250 на профиле — одной линией"
+    assert note.short not in result["assumptions"]
 
 
 @pytest.mark.parametrize("case", ["missing_level", "material_conflict", "bend_conflict"])

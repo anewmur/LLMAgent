@@ -42,7 +42,8 @@ def test_drawings_take_requisites_from_document_set(route_data, config):
         (DocumentId.SPECIFICATION, SpecificationDrawing),
     ]:
         document = documents.get(document_id)
-        drawing = drawing_class(project, document)
+        drawing = (drawing_class(project, document, config) if document_id == DocumentId.PROFILE
+                   else drawing_class(project, document))
         root = ET.fromstring(drawing.render())
         text = "".join("".join(root.itertext()).split())
         assert document["designation"] in text

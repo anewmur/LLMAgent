@@ -77,7 +77,7 @@ class RouteSession:
     @staticmethod
     def problem_response(status, problems, **extra):
         """Собирает ответ инструмента с прежним форматом списка проблем."""
-        return {"status": status, **extra, "problems": [problem.to_dict() for problem in problems]}
+        return {"status": status, **extra, "problems": [{"code": problem.code, **problem.to_dict()} for problem in problems]}
 
     def error_response(self, code, message, where):
         """Возвращает ответ с одной ошибкой аргументов инструмента."""
@@ -107,6 +107,8 @@ class RouteSession:
         if self.has_errors(self.project, self.problems):
             return self.problem_response(Status.ERROR, self.problems, message=INPUT_INVALID)
         result = create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)
+        result["problems"] = [{"code": check.name, "level": check.status, "message": check.message}
+                              for check in result.get("checks", []) if check.status != Status.OK]
         if "checks" in result:
             result["checks"] = [check.to_dict() for check in result["checks"]]
         if result["status"] != Status.ERROR:
@@ -118,19 +120,19 @@ class RouteSession:
         try:
             input_path = Path(path)
             if input_path.is_absolute():
-                return {"status": Status.ERROR, "message": LOAD_ROUTE_PATH_ERROR}
+                return self.problem_response(Status.ERROR, [Problem(Level.ERROR, ProblemCode.STRUCTURE, LOAD_ROUTE_PATH_ERROR)], message=LOAD_ROUTE_PATH_ERROR)
             input_path = (PROJECT_ROOT / input_path).resolve()
             if not input_path.is_relative_to(INPUT_DIR.resolve()):
-                return {"status": Status.ERROR, "message": LOAD_ROUTE_PATH_ERROR}
+                return self.problem_response(Status.ERROR, [Problem(Level.ERROR, ProblemCode.STRUCTURE, LOAD_ROUTE_PATH_ERROR)], message=LOAD_ROUTE_PATH_ERROR)
             loaded = RouteSession(input_path, self.output_dir, self.config)
         except (OSError, ValueError, TypeError) as error:
-            return {"status": Status.ERROR, "message": LOAD_ROUTE_ERROR.format(error=error)}
+            return self.problem_response(Status.ERROR, [Problem(Level.ERROR, ProblemCode.STRUCTURE, LOAD_ROUTE_ERROR.format(error=error))], message=LOAD_ROUTE_ERROR.format(error=error))
         self.project, self.problems, self.documents = loaded.project, loaded.problems, loaded.documents
         self.changes, self.font_size = loaded.changes, loaded.font_size
         result = self.release()
         if result["status"] == Status.ERROR:
             return {**result, "message": LOAD_ROUTE_DATA_ERROR}
-        return {"status": result["status"], "object_name": self.project.object.name,
+        return {**result, "object_name": self.project.object.name,
                 "point_count": len(self.project.points),
                 "length_m": calculate_route_geometry(self.project.points)["length_m"]}
 

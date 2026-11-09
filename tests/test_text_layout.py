@@ -70,7 +70,7 @@ def test_general_text_stays_inside_columns_and_frame(route_data, config):
         assert right <= notes_right, element.text
     fifth_note = " ".join(" ".join(notes.findall("s:text", NS)[4].itertext()).split())
     assert fifth_note == ("В исходных данных заданы отметки оси трубопровода; на профиле показаны отметки низа трубы "
-                          "(ось минус половина наружного диаметра). Труба показана сплошной толстой линией.")
+                          "(ось минус половина наружного диаметра). Труба ⌀110 на профиле — одной линией. Линии трубы — сплошные толстые.")
 
 
 def test_specification_header_text_stays_inside_columns(route_data, config):

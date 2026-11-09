@@ -61,3 +61,10 @@ BENDS_DESCRIPTION = (
     "Все отводы, которых требует перенос, из сообщений проверки: и новые отводы, "
     "и новые углы существующих — в одном вызове. at — имя точки, angle_deg — угол в градусах."
 )
+
+# Слова о завершённом выпуске; проверяется успешный вызов release_documents в текущем вопросе.
+RELEASE_CLAIM_PATTERN = r"(?i)\b(?:выпущен[а-яё]*|обновл[её]н[а-яё]*|выпустил[а-яё]*|обновил[а-яё]*)\b"
+RELEASE_NEGATION_PATTERN = r"(?i)(?:не|будут|будет|буду|будем)\s+(?:был[аио]?\s+)?$"
+RELEASE_SUBJECT_PATTERN = r"(?i)\b(?:документ[а-яё]*|комплект)\b"
+RELEASE_SENTENCE_SEPARATOR = r"[.!?\n]"
+RELEASE_WARNING_TEMPLATE = LOG_PREFIX + " WARNING: вопрос {turn}: заявлен выпуск без успешного release_documents в этом вопросе"

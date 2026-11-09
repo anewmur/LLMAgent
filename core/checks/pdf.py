@@ -2,7 +2,7 @@ from pypdf import PdfReader
 
 from core import drawing_settings as settings
 from core.checks.base import BaseChecks
-from core.formatting import format_number, format_station
+from core.formatting import format_number, format_station, format_slope
 from core.models import DocumentId
 
 
@@ -19,7 +19,7 @@ class PdfChecks(BaseChecks):
         values += [format_number(section["length_m"]) for section in self.geometry["sections"]]
         if document_id == DocumentId.PROFILE:
             values += [format_number(point["bottom_m"]) for point in self.levels if point["bottom_m"] is not None]
-            values += [format_number(section["slope_per_mille"]) for section in self.geometry["sections"] if section["slope_per_mille"] is not None]
+            values += [format_slope(section["slope_per_mille"]) for section in self.geometry["sections"] if section["slope_per_mille"] is not None]
         if document_id == DocumentId.PLAN:
             values += [f"X={format_number(point.x)}, Y={format_number(point.y)}" for point in self.project.points]
         return values

@@ -61,6 +61,8 @@ class Sheet:
             "sheet_total_x": f"{settings.SHEET_TOTAL_X_MM:g}",
             "sheet_number_y": f"{settings.SHEET_NUMBER_Y_MM:g}",
             "training_label": escape(settings.TRAINING_LABEL),
+            "training_x": settings.SHEET_TRAINING_X_MM, "training_y": settings.SHEET_TRAINING_Y_MM,
+            "training_size": settings.SHEET_TRAINING_FONT_MM,
             "font_family": settings.FONT_FAMILY,
             "designation": escape(str(self.designation)),
             "object_name": escape(str(self.object_name)),

@@ -8,6 +8,7 @@ from core.models import Project, SpecificationColumn, UNIT_M, UNIT_PIECE
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.tables import TableCell
+from core.pipe_drawing import pipe_size_text
 from core.formatting import render_template
 
 
@@ -19,7 +20,7 @@ HEADERS = [
     "Масса 1 ед., кг", "Примечание",
 ]
 # Явный перенос длинного заголовка на листе; в CSV остаётся полное имя графы.
-HEADER_LINE_BREAKS = {"Количество": "Коли-\nчество"}
+HEADER_LINE_BREAKS = {"Количество": "Коли-\nчество", "Ед. измерения": "Ед.\nизме-\nрения"}
 WIDTHS = [20, 130, 60, 35, 45, 20, 20, 25, 40]
 # Графы «Наименование» и «Примечание» выравниваются влево; индексы отсчитываются от нуля.
 LEFT_ALIGNED_COLUMNS = (SpecificationColumn.NAME, SpecificationColumn.NOTE)
@@ -40,8 +41,7 @@ class SpecificationDrawing:
     def build_rows(self):
         """Один список строк для CSV и SVG; количества уже рассчитаны."""
         pipe = self.quantities["pipe"]
-        diameter = format_pipe_value(pipe["outer_diameter_mm"])
-        wall = format_pipe_value(pipe["wall_mm"])
+        size = pipe_size_text(self.project.pipe)
         sdr = format_pipe_value(pipe["sdr"])
         rows = []
 
@@ -50,14 +50,14 @@ class SpecificationDrawing:
         for bend in self.quantities["bends"]:
             angle = format_pipe_value(bend["angle_deg"])
             rows.append([
-                str(len(rows) + 1), f'Отвод {angle}° {pipe["material"]} SDR {sdr} {diameter}',
+                str(len(rows) + 1), f'Отвод {angle}° {pipe["material"]} SDR {sdr} {size}',
                 "", "", "", UNIT_PIECE, str(bend["quantity_pcs"]), "",
                 "Материал и SDR приняты как у трубы",
             ])
 
         # характеристики из входа, неизвестные поля пустые.
         rows.append([
-            str(len(rows) + 1), f'Труба {pipe["material"]} SDR {sdr} {diameter}×{wall}',
+            str(len(rows) + 1), f'Труба {pipe["material"]} SDR {sdr} {size}',
             pipe.get("standard") or "", "", "", UNIT_M, format_number(pipe["quantity_m"]), "",
             "Без запаса и вычета монтажных длин отводов",
         ])
@@ -70,7 +70,8 @@ class SpecificationDrawing:
             height = settings.SPEC_MIN_ROW_HEIGHT_MM
             for column, (value, width) in enumerate(zip(row, WIDTHS)):
                 lines = TableCell(value, 0, 0, width, height, centered=column not in LEFT_ALIGNED_COLUMNS).lines
-                height = max(height, len(lines) * settings.TABLE_CELL_LINE_STEP_MM)
+                height = max(height, (len(lines) - 1) * settings.TABLE_CELL_LINE_STEP_MM + settings.DEFAULT_FONT_SIZE_MM
+                             + 2 * settings.SPEC_ROW_VERTICAL_PADDING_MM + 2 * abs(settings.TABLE_CELL_BASELINE_OFFSET_MM))
             heights.append(height)
         remaining = settings.SPEC_BODY_HEIGHT_MM - sum(heights)
         if remaining < 0:

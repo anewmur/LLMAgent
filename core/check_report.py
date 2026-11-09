@@ -46,6 +46,8 @@ class CheckReport:
             if check.status != Status.OK:
                 result = "Предупреждение" if check.status == Status.WARNING else "Ошибка"
             detail = check.message.replace("|", "\\|").replace("\n", " ")
+            if check.reference:
+                detail += f" ({check.reference})"
             rows.append(f'| {check.name} | {result} | {detail} |')
         return "\n".join(rows)
 

@@ -90,8 +90,9 @@ def test_plan_labels_follow_calculated_lengths_and_stations(route_data, config):
         assert coordinates[-1][0] - coordinates[0][0] == p5_x
         assert all(30 <= sheet_x <= 405 and 35 <= sheet_y <= 227 for sheet_x, sheet_y in coordinates)
         if p5_x == 300:
-            pipe_label = labels.find(".//s:text[@data-kind='pipe-label']", ns)
-            assert coordinates[-1][1] + float(pipe_label.get("y")) > float(lengths[-1].get("y")) + 5
+            pipe_label = labels.find(".//s:g[@data-kind='pipe-label']", ns)
+            pipe_bounds = tuple(map(float, pipe_label.get("data-bounds").split()))
+            assert pipe_bounds[1] >= float(lengths[-1].get("y")) + settings.PLAN_LENGTH_OFFSET_MM
         coordinate_labels = labels.findall(".//s:text[@data-kind='coordinates']", ns)
         for (sheet_x, sheet_y), name, station, coordinate in zip(coordinates, names, stations, coordinate_labels):
             assert float(name.get("y")) < float(station.get("y")) < float(coordinate.get("y")) < sheet_y
@@ -120,8 +121,9 @@ def test_plan_symbols_and_legend_use_input(route_data, config):
     assert all(marker.get("fill") == "white" for marker in markers)
     assert all(float(marker.get("r")) * 2 == settings.POINT_MARKER_DIAMETER_MM for marker in markers)
     assert all(float(marker.get("stroke-width")) == settings.POINT_MARKER_LINE_WIDTH_MM for marker in markers)
-    label = root.find(".//s:text[@data-kind='pipe-label']", ns)
-    assert "".join(label.itertext()) == "В1 — ПЭ 100 & тест SDR 17 ⌀160×9,5"
+    label = root.find(".//s:g[@data-kind='pipe-label']", ns)
+    assert [element.text for element in label.findall("s:text", ns)] == ["В1", "⌀160×9,5"]
+    assert "ПЭ 100" not in "".join(label.itertext())
     names = root.findall(".//s:text[@data-kind='point-name']", ns)
     assert [element.text for element in names][2:4] == ["P2 / УП1", "P3 / УП2"]
     legend = root.find("s:g[@id='plan-legend']", ns)
@@ -168,19 +170,18 @@ def test_plan_accepts_scale_and_reports_fit_at_that_scale(route_data, config):
         PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN), scale=0)
 
 
-def test_vertical_pipe_leader_uses_drawing_field_center(route_data, config):
+def test_pipe_leader_uses_drawing_field_center(route_data, config):
     project, problems = validate_input(route_data)
     assert not problems
     drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
     assert drawing.field_center_x() == (30 + 405) / 2
-    for sheet_x, anchor in [(200, "start"), (230, "end")]:
-        label = ET.fromstring(drawing.vertical_pipe_label("Труба", sheet_x, 100)).find("text")
-        assert label.get("text-anchor") == anchor
-        assert float(label.get("y")) + settings.PLAN_FONT_SIZE_MM < 100 + settings.PLAN_TEXT_BASELINE_OFFSET_MM
-        if anchor == "start":
-            assert float(label.get("x")) > sheet_x
-        else:
-            assert float(label.get("x")) < sheet_x
+    for sheet_x in (200, 230):
+        drawing.coordinates = [(point_x + sheet_x - drawing.coordinates[2][0], point_y)
+                               for point_x, point_y in drawing.coordinates]
+        label = ET.fromstring(drawing.draw_pipe_label())
+        left, top, right, bottom = map(float, label.get("data-bounds").split())
+        assert left > sheet_x if sheet_x < drawing.field_center_x() else right < sheet_x
+        assert bottom < (drawing.coordinates[2][1] + drawing.coordinates[3][1]) / 2
 
 
 def test_point_label_blocks_stay_in_field_with_leaders(route_data, config):
@@ -223,6 +224,6 @@ def test_vertical_length_label_has_side_clearance(route_data, config, end_y, sid
     line_x = drawing.coordinates[0][0]
     assert label.get("text-anchor") == "middle"
     assert (left - line_x if side == 1 else line_x - right) == pytest.approx(settings.PLAN_LENGTH_OFFSET_MM)
-    pipe = root.find(".//{http://www.w3.org/2000/svg}text[@data-kind='pipe-label']")
-    pipe_bounds = PlanChecks.plan_label_bounds(pipe, float(pipe.get("font-size")))
+    pipe = root.find(".//{http://www.w3.org/2000/svg}g[@data-kind='pipe-label']")
+    pipe_bounds = tuple(map(float, pipe.get("data-bounds").split()))
     assert not PlanChecks.rectangles_overlap(bounds, pipe_bounds)

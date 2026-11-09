@@ -182,6 +182,7 @@ class Pipe(BaseModel):
     outer_diameter_mm: float = Field(gt=0, allow_inf_nan=False)
     wall_mm: float = Field(gt=0, allow_inf_nan=False)
     standard: str | None = None
+    insulation: str | None = None
 
 
 class ObjectInfo(BaseModel):

@@ -1,6 +1,7 @@
 from core import drawing_settings as settings
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM, FONT_SIZES
-from core.formatting import format_pipe_value
+from core.formatting import format_pipe_value, format_station
+from core.tables import text_width
 
 
 class ProfileStyle:
@@ -34,7 +35,7 @@ class ProfileStyle:
 
     def check_table(self):
         """Проверяет, помещается ли вертикальная подпись пикета в свою строку."""
-        if self.base_size * settings.PROFILE_STATION_TEXT_HEIGHT_FACTOR > settings.PROFILE_STATION_TEXT_HEIGHT_MM:
+        if text_width(format_station(0), self.base_size) > settings.PROFILE_STATION_TEXT_HEIGHT_MM:
             raise ValueError(
                 f"Шрифт {self.base_size:g} мм не помещается в фиксированные строки пикетов таблицы. "
                 "Уменьшите шрифт; прежний лист сохранён."

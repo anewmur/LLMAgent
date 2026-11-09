@@ -37,7 +37,7 @@ class PackageRelease:
         (folder / f"{document_id}.svg").write_text(drawing.render(), encoding="utf-8")
 
     def build_svg(self, folder):
-        profile = ProfileDrawing(self.project, self.documents.get(DocumentId.PROFILE), self.font_size)
+        profile = ProfileDrawing(self.project, self.documents.get(DocumentId.PROFILE), self.config, self.font_size)
         self.assumptions = load_assumptions(self.config, self.project, profile.vertical_scale)
         general = GeneralData(self.project, self.documents, self.config, self.assumptions)
         (folder / f"{DocumentId.GENERAL}.svg").write_text(general.render(), encoding="utf-8")
@@ -95,7 +95,7 @@ class PackageRelease:
                 report = CheckReport(self.project, self.config, checks, self.assumptions)
                 status = report.write(folder)
                 if status == Status.ERROR:
-                    raise ValueError(CheckReport.failure_message(checks))
+                    return {"status": status, "message": CheckReport.failure_message(checks), "checks": checks}
                 self.write_changes(folder)
                 self.publish(folder)
             return {"status": status, "folder": str(self.output_dir), "checks": checks,

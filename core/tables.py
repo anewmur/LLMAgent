@@ -52,7 +52,7 @@ class TableCell:
     def __init__(self, value, left, top, width, height, centered):
         """Переносит текст и сохраняет размеры и выравнивание ячейки."""
         self.lines = wrap_text(value, width - settings.TABLE_CELL_HORIZONTAL_PADDING_MM,
-                               DEFAULT_FONT_SIZE_MM, break_long_words=not centered)
+                               DEFAULT_FONT_SIZE_MM, break_long_words=False)
         self.left, self.top = left, top
         self.width, self.height, self.centered = width, height, centered
 
@@ -100,9 +100,9 @@ class RegisterTable:
     def render(self):
         """Возвращает SVG ведомости с рамкой, сеткой и строками."""
         width = sum(self.widths)
-        row_top = 15
-        elements = [self.draw_row(self.headings, 0, 15)]
-        borders = [f'M 0,15 H {width}']
+        row_top = settings.REGISTER_HEADER_HEIGHT_MM
+        elements = [self.draw_row(self.headings, 0, settings.REGISTER_HEADER_HEIGHT_MM)]
+        borders = [f'M 0,{row_top} H {width}']
         for row in self.rows:
             height = self.row_height(row)
             elements.append(self.draw_row(row, row_top, height))
