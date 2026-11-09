@@ -17,7 +17,13 @@ class TokenUsage:
     prompt_cache_hit_tokens: int = 0
     prompt_cache_miss_tokens: int = 0
     completion_tokens: int = 0
-    cost_usd: float = 0.0
+    cost_usd: float | None = 0.0
+    model: str = settings.MODEL
+
+    def __post_init__(self):
+        """Отключает расчёт стоимости для моделей без заданного тарифа."""
+        if self.model != settings.MODEL:
+            self.cost_usd = None
 
     def add(self, usage, timestamp=None):
         """Добавляет usage ответа API; без разбивки весь вход считается без кэша."""
@@ -31,8 +37,8 @@ class TokenUsage:
         self.prompt_cache_miss_tokens += miss
         output = getattr(usage, "completion_tokens", 0) or 0
         self.completion_tokens += output
-        timestamp = timestamp or utc_now()
-        self.cost_usd += self.response_cost(hit, miss, output, timestamp)
+        if self.cost_usd is not None:
+            self.cost_usd += self.response_cost(hit, miss, output, timestamp or utc_now())
 
     @staticmethod
     def response_cost(hit, miss, output, timestamp):
@@ -46,8 +52,10 @@ class TokenUsage:
 
     def summary(self, template, elapsed, **values):
         """Форматирует итог с общими единицами и точностью вывода."""
+        cost = settings.UNPRICED_COST_MESSAGE if self.cost_usd is None else settings.COST_TEMPLATE.format(
+            cost=format_number(self.cost_usd, 6))
         return template.format(elapsed=format_number(elapsed),
                                input_tokens=format_number(self.prompt_cache_hit_tokens + self.prompt_cache_miss_tokens, 0),
                                cache_tokens=format_number(self.prompt_cache_hit_tokens, 0),
                                output_tokens=format_number(self.completion_tokens, 0),
-                               cost=format_number(self.cost_usd, 6), **values)
+                               cost=cost, **values)

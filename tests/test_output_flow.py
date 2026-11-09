@@ -27,7 +27,9 @@ def test_main_saves_both_questions_and_usage_without_release_tools(input_file, t
     monkeypatch.setattr(main, "RouteSession", lambda *arguments: session)
     monkeypatch.setattr(main, "load_config", lambda: config)
     monkeypatch.setattr(main, "load_dotenv", lambda path: None)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test")
+    monkeypatch.setenv("LLM_API_KEY", "test")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
     client = Mock()
     client.chat.completions.create.side_effect = [
         reply(tool=ToolName.CALCULATE_ROUTE_LENGTH), reply(content="Ответ первый"),

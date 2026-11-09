@@ -31,6 +31,19 @@ def test_token_usage_add_and_cost(monkeypatch):
     assert usage.cost_usd == pytest.approx(0.28)
 
 
+def test_other_model_counts_tokens_without_calculating_cost(monkeypatch):
+    calculate_cost = Mock(side_effect=AssertionError("У этой модели нет заданного тарифа"))
+    monkeypatch.setattr(TokenUsage, "response_cost", calculate_cost)
+    usage = TokenUsage(model="other-model")
+    usage.add(SimpleNamespace(prompt_tokens=20, completion_tokens=5))
+    assert usage.prompt_cache_miss_tokens == 20 and usage.completion_tokens == 5
+    assert usage.cost_usd is None
+    calculate_cost.assert_not_called()
+    summary = usage.summary(settings.USAGE_LOG_TEMPLATE, 1, turn=1)
+    assert settings.UNPRICED_COST_MESSAGE in summary
+    assert "$" not in summary
+
+
 def test_question_and_session_usage_are_logged(input_file, tmp_path, config, monkeypatch, capsys):
     session = RouteSession(input_file, tmp_path / "output", config)
     client = Mock()

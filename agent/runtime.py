@@ -3,7 +3,7 @@ import re
 from time import perf_counter
 
 from agent.settings import (
-    EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY, MISSING_AXIS_REPLY, SOURCE_PREFIX, RELEASE_REFUSAL_PATTERN,
+    BASE_URL, EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY, MISSING_AXIS_REPLY, SOURCE_PREFIX, RELEASE_REFUSAL_PATTERN,
     RELEASE_CLAIM_PATTERN, RELEASE_NEGATION_PATTERN, RELEASE_WARNING_TEMPLATE,
     RELEASE_SUBJECT_PATTERN, RELEASE_SENTENCE_SEPARATOR,
     ROUND_LIMIT_RESPONSE, SOURCE_PATTERN, SOURCE_SEPARATOR,
@@ -20,14 +20,15 @@ class RouteAgent:
     """Диалог о трассе с историей сообщений, вызовами инструментов и журналом."""
 
     def __init__(self, client, handlers, system_prompt, model=MODEL,
-                 max_rounds=MAX_TOOL_ROUNDS, tool_log=None):
+                 max_rounds=MAX_TOOL_ROUNDS, tool_log=None, base_url=BASE_URL):
         """Сохраняет клиент, инструменты и настройки, начинает историю системным промптом."""
         self.client, self.handlers = client, handlers
         self.model, self.max_rounds = model, max_rounds
+        self.request_options = {"extra_body": MODEL_EXTRA_BODY} if base_url.rstrip("/") == BASE_URL.rstrip("/") else {}
         self.tool_log = [] if tool_log is None else tool_log
         self.usage_log = []
         self.turn = 0
-        self.question_usage, self.session_usage = TokenUsage(), TokenUsage()
+        self.question_usage, self.session_usage = TokenUsage(model=model), TokenUsage(model=model)
         self.session_elapsed = 0.0
         self.messages = [{"role": "system", "content": system_prompt}]
 
@@ -35,7 +36,7 @@ class RouteAgent:
         """Добавляет вопрос в историю и возвращает ответ после вызовов инструментов."""
         started = perf_counter()
         self.turn += 1
-        self.question_usage = TokenUsage()
+        self.question_usage = TokenUsage(model=self.model)
         self.messages.append({"role": "system", "content": TURN_CONTEXT_TEMPLATE.format(turn=self.turn)})
         self.messages.append({"role": "user", "content": question})
         try:
@@ -48,7 +49,8 @@ class RouteAgent:
         self.session_elapsed += elapsed
         summary = self.question_usage.summary(USAGE_LOG_TEMPLATE, elapsed, turn=self.turn)
         total = self.session_usage.summary(SESSION_USAGE_TEMPLATE, self.session_elapsed)
-        self.usage_log.append({"turn": self.turn, "summary": summary, "session_summary": total + "\n\n" + PRICE_NOTE})
+        price_note = "\n\n" + PRICE_NOTE if self.session_usage.cost_usd is not None else ""
+        self.usage_log.append({"turn": self.turn, "summary": summary, "session_summary": total + price_note})
         print(summary)
 
     def answer(self):
@@ -56,7 +58,7 @@ class RouteAgent:
         for _ in range(self.max_rounds):
             response = self.client.chat.completions.create(
                 model=self.model, messages=self.messages, tools=TOOLS,
-                extra_body=MODEL_EXTRA_BODY,
+                **self.request_options,
             )
             usage = getattr(response, "usage", None)
             timestamp = utc_now()

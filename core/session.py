@@ -57,6 +57,7 @@ class RouteSession:
         self.output_dir = Path(output_dir)
         self.changes, self.tool_log = [], []
         self.usage_log = []
+        self.model_info = ""
         self.font_size = DEFAULT_FONT_SIZE_MM
 
     def save_tool_log(self):
@@ -71,7 +72,9 @@ class RouteSession:
             rows.append("| " + " | ".join(cells) + " |")
         summaries = [entry["summary"] for entry in self.usage_log]
         usage = "\n\n".join([USAGE_LOG_HEADING, *summaries, self.usage_log[-1]["session_summary"]]) if self.usage_log else ""
-        text = render_template(TEMPLATES_DIR / TOOL_LOG_FILENAME, {"rows": "\n".join(rows), "usage": usage})
+        text = render_template(TEMPLATES_DIR / TOOL_LOG_FILENAME, {
+            "model_info": self.model_info, "rows": "\n".join(rows), "usage": usage,
+        })
         self.output_dir.mkdir(parents=True, exist_ok=True)
         (self.output_dir / TOOL_LOG_FILENAME).write_text(text, encoding="utf-8")
 

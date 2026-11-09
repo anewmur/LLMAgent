@@ -7,7 +7,7 @@ from openai import APIError, OpenAI
 import yaml
 
 from agent.runtime import RouteAgent
-from agent.settings import BASE_URL, MISSING_API_KEY_MESSAGE, MODEL
+from agent.settings import BASE_URL, MISSING_API_KEY_MESSAGE, MODEL, MODEL_INFO_TEMPLATE
 from agent.tools import ToolName
 from core.models import Status
 from config.paths import PACKAGE_ROOT, PROJECT_ROOT
@@ -39,10 +39,14 @@ def main(argv=None):
         print(INPUT_READ_ERROR_MESSAGE.format(path=arguments.input_file, error=error))
         return 1
     load_dotenv(PROJECT_ROOT / "api_keys.env")
-    api_key = os.getenv("DEEPSEEK_API_KEY")
+    api_key = os.getenv("LLM_API_KEY")
     if not api_key:
         print(MISSING_API_KEY_MESSAGE)
         return 1
+    base_url = os.getenv("LLM_BASE_URL") or BASE_URL
+    model = os.getenv("LLM_MODEL") or MODEL
+    session.model_info = MODEL_INFO_TEMPLATE.format(model=model, base_url=base_url)
+    print(session.model_info)
     system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
     initial = session.release()
     if initial["status"] == Status.ERROR:
@@ -63,10 +67,10 @@ def main(argv=None):
     }
     client = OpenAI(
         api_key=api_key,
-        base_url=BASE_URL,
+        base_url=base_url,
     )
-    agent = RouteAgent(client, handlers, system_prompt, model=MODEL,
-                       tool_log=session.tool_log)
+    agent = RouteAgent(client, handlers, system_prompt, model=model,
+                       tool_log=session.tool_log, base_url=base_url)
     session.usage_log = agent.usage_log
     session.save_tool_log()
     try:

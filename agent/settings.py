@@ -1,4 +1,4 @@
-# Имя модели DeepSeek, используемой для диалога и выбора инструментов.
+# Модель по умолчанию; переопределяется переменной окружения LLM_MODEL.
 MODEL = "deepseek-flash"
 # USD за 1 млн токенов deepseek-flash, тарифы PEAK и OFF-PEAK.
 # Проверено 2026-11-09: https://api-docs.deepseek.com/quick_start/pricing/
@@ -13,28 +13,33 @@ PEAK_HOURS_UTC = ((1, 4), (6, 10))
 PEAK_WEEKDAYS = (0, 1, 2, 3, 4)
 TOKENS_PER_PRICE_UNIT = 1_000_000
 PRICE_NOTE = "Стоимость по тарифу DeepSeek на момент запроса (пик/вне пика); китайские праздники не учитываются."
-# Адрес OpenAI-совместимого API DeepSeek.
+# Формулировки стоимости для модели с заданным тарифом и для остальных моделей.
+COST_TEMPLATE = "стоимость ${cost}"
+UNPRICED_COST_MESSAGE = f"стоимость не рассчитана: тарифы заданы только для {MODEL}"
+# Адрес OpenAI-совместимого API по умолчанию; переопределяется LLM_BASE_URL.
 BASE_URL = "https://api.deepseek.com"
 # Подсказка при запуске без ключа API; выводится перед завершением с кодом 1.
 MISSING_API_KEY_MESSAGE = (
-    "Не задан DEEPSEEK_API_KEY. Скопируйте api_keys.env.example в api_keys.env и укажите ключ "
-    "или задайте переменную окружения DEEPSEEK_API_KEY."
+    "Не задан LLM_API_KEY. Задайте переменную окружения LLM_API_KEY или создайте в папке запуска "
+    "файл api_keys.env со строкой LLM_API_KEY=ваш_ключ."
 )
 # Предел последовательных раундов обращения к модели при вызовах инструментов в одном ответе.
 MAX_TOOL_ROUNDS = 10
-# Отключение режима рассуждений при запросах к модели; прежние параметры API.
+# Отключение рассуждений только для адреса DeepSeek по умолчанию.
 MODEL_EXTRA_BODY = {"thinking": {"type": "disabled"}}
+# Одинаковая строка выбора модели в консоли и в шапке журнала.
+MODEL_INFO_TEMPLATE = "Модель: {model}; API: {base_url}"
 
 # Префикс и формат записи вызова инструмента в консольном журнале.
 LOG_PREFIX = "[журнал]"
 TOOL_LOG_TEMPLATE = LOG_PREFIX + " вопрос {turn}: {tool}({arguments}) -> {status}"
 USAGE_LOG_TEMPLATE = (
     LOG_PREFIX + " вопрос {turn}: время {elapsed} с, токены вход {input_tokens} "
-    "(кэш {cache_tokens}) / выход {output_tokens}, стоимость ${cost}"
+    "(кэш {cache_tokens}) / выход {output_tokens}, {cost}"
 )
 SESSION_USAGE_TEMPLATE = (
     "Итог сессии: время {elapsed} с, токены вход {input_tokens} "
-    "(кэш {cache_tokens}) / выход {output_tokens}, стоимость ${cost}"
+    "(кэш {cache_tokens}) / выход {output_tokens}, {cost}"
 )
 # Строка источника, разделитель списка инструментов и шаблон извлечения списка с номером вопроса.
 SOURCE_PREFIX = "Источник:"

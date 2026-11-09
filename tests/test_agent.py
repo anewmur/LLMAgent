@@ -134,7 +134,9 @@ def test_terminal_accepts_multiple_questions(monkeypatch, config, input_name, ex
     monkeypatch.setattr(main, "RouteSession", session_factory)
     monkeypatch.setattr(main, "load_config", config_loader)
     monkeypatch.setattr(main, "load_dotenv", lambda path: None)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
     client = Mock()
     client_factory = Mock(return_value=client)
     monkeypatch.setattr(main, "OpenAI", client_factory)
@@ -151,7 +153,7 @@ def test_terminal_accepts_multiple_questions(monkeypatch, config, input_name, ex
     assert arguments.args[0] is client
     assert set(arguments.args[1]) == set(ToolName)
     assert arguments.args[2] == main.SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-    assert arguments.kwargs == {"model": MODEL, "tool_log": session.tool_log}
+    assert arguments.kwargs == {"model": MODEL, "tool_log": session.tool_log, "base_url": BASE_URL}
     client_factory.assert_called_once_with(api_key="test-key", base_url=BASE_URL)
     session.release.assert_called_once_with()
     config_loader.assert_called_once_with()
