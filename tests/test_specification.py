@@ -3,6 +3,7 @@ from xml.etree import ElementTree as ET
 import csv
 
 from core.documents import DocumentSet
+from core.formatting import format_pipe_value
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import DocumentId
 from core.session import RouteSession
@@ -14,15 +15,15 @@ import core.specification as specification_module
 
 def test_csv_and_svg_match_calculated_quantities(route_data, tmp_path, config):
     # \u0418\u0441\u0445\u043e\u0434\u043d\u044b\u0439 \u043f\u0440\u0438\u043c\u0435\u0440 \u0438 \u0434\u0440\u0443\u0433\u043e\u0439 \u0448\u0438\u0444\u0440, \u043e\u0431\u044a\u0435\u043a\u0442, \u0434\u0438\u0430\u043c\u0435\u0442\u0440 \u0438 \u0434\u043b\u0438\u043d\u0430 \u2014 \u0431\u0435\u0437 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f \u043a\u043e\u0434\u0430.
-    for code, name, p5_x, diameter, expected_length, standard in [
-        ("AI-TEST-01", "\u0423\u0447\u0435\u0431\u043d\u044b\u0439 \u0443\u0447\u0430\u0441\u0442\u043e\u043a \u0432\u043e\u0434\u043e\u043f\u0440\u043e\u0432\u043e\u0434\u0430", 280, 110, 360, None),
-        ("OTHER-02", "Другой объект $100 ${table_body} & участок", 300, 160, 380,
+    for code, name, p5_x, diameter, wall, expected_length, standard in [
+        ("AI-TEST-01", "\u0423\u0447\u0435\u0431\u043d\u044b\u0439 \u0443\u0447\u0430\u0441\u0442\u043e\u043a \u0432\u043e\u0434\u043e\u043f\u0440\u043e\u0432\u043e\u0434\u0430", 280, 110, 6.6, 360, None),
+        ("OTHER-02", "Другой объект $100 ${table_body} & участок", 300, 160, 9.5, 380,
          "\u0422\u0423 TEST-160. \u0422\u0440\u0443\u0431\u044b \u043d\u0430\u043f\u043e\u0440\u043d\u044b\u0435 \u043f\u043e\u043b\u0438\u044d\u0442\u0438\u043b\u0435\u043d\u043e\u0432\u044b\u0435. \u0422\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0443\u0441\u043b\u043e\u0432\u0438\u044f"),
     ]:
         data = deepcopy(route_data)
         data["object"].update(project_code=code, name=name)
         data["points"][-1]["x"] = p5_x
-        data["pipe"]["outer_diameter_mm"] = diameter
+        data["pipe"].update(outer_diameter_mm=diameter, wall_mm=wall)
         if standard is None:
             data["pipe"].pop("standard", None)  # \u041f\u043e\u043b\u0435 \u043c\u043e\u0436\u0435\u0442 \u0432\u043e\u043e\u0431\u0449\u0435 \u043e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u043e\u0432\u0430\u0442\u044c.
         else:
@@ -45,7 +46,7 @@ def test_csv_and_svg_match_calculated_quantities(route_data, tmp_path, config):
         assert rows[0]["\u041f\u0440\u0438\u043c\u0435\u0447\u0430\u043d\u0438\u0435"] == "\u041c\u0430\u0442\u0435\u0440\u0438\u0430\u043b \u0438 SDR \u043f\u0440\u0438\u043d\u044f\u0442\u044b \u043a\u0430\u043a \u0443 \u0442\u0440\u0443\u0431\u044b"
         assert rows[0]["\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e"] == "2"
         assert rows[0]["\u0415\u0434. \u0438\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f"] == "\u0448\u0442."
-        assert rows[1]["\u041d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u0435 \u0438 \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u0445\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430"] == f"\u0422\u0440\u0443\u0431\u0430 \u041f\u042d 100 SDR 17 {diameter}\u00d76,6"
+        assert rows[1]["\u041d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u0435 \u0438 \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u0445\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430"] == f"\u0422\u0440\u0443\u0431\u0430 \u041f\u042d 100 SDR 17 {diameter}\u00d7{format_pipe_value(wall)}"
         assert rows[1]["\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e"] == f"{expected_length},00"
         assert rows[1]["\u0415\u0434. \u0438\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f"] == "\u043c"
         assert rows[0][HEADERS[2]] == ""

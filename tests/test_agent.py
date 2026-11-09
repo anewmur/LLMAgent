@@ -38,6 +38,7 @@ def test_questions_preserve_history_and_log_tools():
     assert [message["content"] for message in messages if message["role"] == "user"] == ["Длина?", "А уклон?"]
     assert [message["tool_call_id"] for message in messages if message["role"] == "tool"] == ["call_1", "call_2"]
     assert log[0]["result"]["length_m"] == 360
+    assert agent.turn == 2 and [entry["turn"] for entry in log] == [1, 2]
 
 
 @pytest.mark.parametrize("name, arguments", [("unknown", "{}"), ("calculate_route_length", "broken json"),
@@ -115,6 +116,7 @@ def test_tools_update_current_session(input_file, tmp_path, config):
     assert results[2]["pipe"]["quantity_m"] == 380
     assert text == "Длина стала 380 м."
     assert len(session.tool_log) == 3 and session.tool_log[1]["tool"] == "update_point"
+    assert [entry["turn"] for entry in session.tool_log] == [1, 1, 1]
     assert input_file.read_bytes() == original
 
 
@@ -219,3 +221,50 @@ def test_pipe_tool_updates_session_and_returns_changes(input_file, tmp_path, con
     assert (folder / "pdf/package.pdf").is_file()
     assert "Материал трубы: **ПЭ 100 → ПЭ 80**." in (folder / "changes.md").read_text(encoding="utf-8")
     assert input_file.read_bytes() == original
+
+
+@pytest.mark.parametrize("called", [False, True])
+def test_source_warning_uses_session_tool_history(called, capsys):
+    name = ToolName.CALCULATE_ROUTE_LENGTH.value
+    text = f"Длина — 360 м.\nИсточник: {name} (вопрос 1)"
+    handler = Mock(return_value={"status": "ok", "length_m": 360})
+    client = Mock()
+    replies = [response(tool_name=name)] if called else []
+    client.chat.completions.create.side_effect = replies + [response(content=text), response(content=text)]
+    agent = RouteAgent(client, {name: handler}, "Помощник")
+
+    assert agent.ask("Длина?") == text
+    first_output = capsys.readouterr().out
+    assert agent.ask("Повтори значение из истории") == text
+    second_output = capsys.readouterr().out
+    assert agent.turn == 2
+    assert agent.messages[1] == {"role": "system", "content": "Текущий вопрос: 1."}
+    warnings = [entry for entry in agent.tool_log if "warning" in entry]
+    if called:
+        handler.assert_called_once_with()
+        assert "[журнал] вопрос 1: calculate_route_length({}) -> ok" in first_output
+        assert "предупреждение" not in first_output + second_output
+        assert not warnings and len(agent.tool_log) == 1
+        assert agent.tool_log[0]["turn"] == 1
+    else:
+        handler.assert_not_called()
+        warning = "[журнал] предупреждение: источник calculate_route_length (вопрос 1) не вызывался"
+        assert first_output.strip() == second_output.strip() == warning
+        assert warnings == [{"turn": 1, "warning": warning}, {"turn": 2, "warning": warning}]
+
+
+def test_source_with_called_tool_and_wrong_turn_warns(capsys):
+    name = ToolName.CALCULATE_ROUTE_LENGTH.value
+    text = f"Длина — 360 м.\nИсточник: {name} (вопрос 2)"
+    handler = Mock(return_value={"status": "ok", "length_m": 360})
+    client = Mock()
+    client.chat.completions.create.side_effect = [response(tool_name=name), response(content=text)]
+    agent = RouteAgent(client, {name: handler}, "Помощник")
+
+    assert agent.ask("Длина?") == text
+
+    handler.assert_called_once_with()
+    assert agent.tool_log[0]["tool"] == name and agent.tool_log[0]["turn"] == 1
+    warning = "[журнал] предупреждение: источник calculate_route_length (вопрос 2) не вызывался"
+    assert warning in capsys.readouterr().out
+    assert agent.tool_log[-1] == {"turn": 1, "warning": warning}

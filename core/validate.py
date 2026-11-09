@@ -2,7 +2,9 @@ import math
 
 from pydantic import ValidationError
 
-from core.models import Level, Problem, ProblemCode, Project
+from core.formatting import format_number, format_pipe_value
+from core.models import PIPE_WHERE, Level, Problem, ProblemCode, Project
+from core.settings import PIPE_SDR_TOLERANCE
 
 
 ANGLE_TOLERANCE_DEG = 0.5  # Допуск сравнения угла отвода, градусы.
@@ -25,6 +27,7 @@ class InputValidator:
         self.check_ids()
         self.check_bends()
         self.check_materials()
+        self.check_pipe_sdr()
         self.check_segments()
         self.check_bend_angles()
         return self.project, self.problems
@@ -79,7 +82,20 @@ class InputValidator:
                 Level.ERROR, ProblemCode.MATERIAL_CONFLICT,
                 f"материал трубы ({self.project.pipe.material}) не совпадает "
                 f"с описанием объекта ({self.project.object.pipe_material})",
-                where="pipe",
+                where=PIPE_WHERE,
+            ))
+
+    def check_pipe_sdr(self):
+        """Проверяет соответствие наружного диаметра, стенки и SDR."""
+        pipe = self.project.pipe
+        calculated_sdr = pipe.outer_diameter_mm / pipe.wall_mm
+        if abs(calculated_sdr - pipe.sdr) > PIPE_SDR_TOLERANCE:
+            self.problems.append(Problem(
+                Level.ERROR, ProblemCode.PIPE_SDR_MISMATCH,
+                f"наружный диаметр {format_pipe_value(pipe.outer_diameter_mm)} мм и стенка {format_pipe_value(pipe.wall_mm)} мм "
+                f"дают SDR {format_number(calculated_sdr)}, указан SDR {format_pipe_value(pipe.sdr)}; "
+                f"допустимое расхождение — {format_pipe_value(PIPE_SDR_TOLERANCE)}",
+                where=PIPE_WHERE,
             ))
 
     def check_segments(self):

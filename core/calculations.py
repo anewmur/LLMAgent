@@ -40,8 +40,12 @@ def load_project(input_file):
 
 
 def calculate_route_length(project: Project):
-    """Возвращает длину и участки готового проверенного проекта."""
-    return calculate_route_geometry(project.points)
+    """Возвращает длину, участки, координаты и отметки оси точек проверенного проекта."""
+    return {
+        **calculate_route_geometry(project.points),
+        "points": [{"name": point.id, "x": point.x, "y": point.y, "z": point.axis}
+                   for point in project.points],
+    }
 
 def calculate_pipe_levels(project: Project):
     """Возвращает отметки и глубины готового проверенного проекта."""

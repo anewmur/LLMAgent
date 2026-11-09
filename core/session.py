@@ -12,7 +12,7 @@ from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.models import (
     Change, ChangeSet, DocumentId, Level, PipeField, PointField,
-    Problem, ProblemCode, Status, UNIT_M, UNIT_MM,
+    PIPE_WHERE, Problem, ProblemCode, Status, UNIT_M, UNIT_MM,
 )
 from core.profile_style import ProfileStyle
 from core.release import create_package
@@ -23,8 +23,6 @@ VALUES_UNCHANGED = "Значения не изменились."
 POINT_NOT_FOUND = "Точка не найдена."
 FIELDS_REQUIRED = "Укажите изменяемые x, y или z."
 PIPE_FIELDS_REQUIRED = "Укажите изменяемые поля трубы: {fields}."
-PIPE_WHERE = "pipe"
-FONT_LIMIT = "Достигнута граница ряда размеров шрифта."
 LABEL_ROUTE_LENGTH = "Общая длина трассы"
 LABEL_PROFILE_FONT = "Базовый шрифт профиля"
 LABEL_OBJECT_PIPE_MATERIAL = "Материал трубы в описании объекта"
@@ -172,7 +170,7 @@ class RouteSession:
     def change_profile_font(self, direction):
         size = ProfileStyle.font_step(self.font_size, direction)
         if size == self.font_size:
-            return {"status": Status.OK, "message": FONT_LIMIT}
+            return {"status": Status.OK, "message": VALUES_UNCHANGED}
         values = []
         self.add_value(values, LABEL_PROFILE_FONT, self.font_size, size, UNIT_MM)
         change = ChangeSet(TITLE_FONT_CHANGE, values, [self.documents.get(DocumentId.PROFILE)["short_title"]])

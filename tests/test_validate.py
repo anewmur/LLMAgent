@@ -2,6 +2,7 @@ import copy
 
 import pytest
 
+from core.models import Level, ProblemCode
 from core.validate import validate_input
 
 
@@ -96,3 +97,24 @@ def test_bend_at_route_end(route_data):
     project, problems = validate_input(changed)
 
     assert any("\u043a\u043e\u043d\u0446\u0435\u0432\u043e\u0439" in problem.message and problem.blocks_quantities for problem in problems)
+
+
+@pytest.mark.parametrize("diameter, wall, sdr, expected_code", [
+    (110, 6.6, 17, None),
+    (160, 9.5, 17, None),
+    (160, 6.6, 17, ProblemCode.PIPE_SDR_MISMATCH),
+    (100, 10, 10.5, None),
+    (100, 10, 10.5001, ProblemCode.PIPE_SDR_MISMATCH),
+    (160, 0, 17, ProblemCode.STRUCTURE),
+])
+def test_pipe_dimensions_match_sdr_with_tolerance(route_data, diameter, wall, sdr, expected_code):
+    route_data["pipe"].update(outer_diameter_mm=diameter, wall_mm=wall, sdr=sdr)
+
+    project, problems = validate_input(route_data)
+
+    if expected_code is None:
+        assert project is not None and not problems
+    else:
+        assert any(problem.code == expected_code and problem.level == Level.ERROR for problem in problems)
+        if expected_code == ProblemCode.PIPE_SDR_MISMATCH:
+            assert all(problem.where == "pipe" and problem.blocks_quantities for problem in problems)

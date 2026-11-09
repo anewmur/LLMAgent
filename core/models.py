@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 UNIT_M = "м"
 UNIT_MM = "мм"
 UNIT_PIECE = "шт."
+# Место проблемы, относящейся к трубе, в ответах проверки.
+PIPE_WHERE = "pipe"
 
 
 class Status(str, Enum):
@@ -36,6 +38,7 @@ class ProblemCode(str, Enum):
     MISSING_BEND_POINT = "missing_bend_point"
     DUPLICATE_BEND = "duplicate_bend"
     MATERIAL_CONFLICT = "material_conflict"
+    PIPE_SDR_MISMATCH = "pipe_sdr_mismatch"
     ZERO_LENGTH = "zero_length"
     END_BEND = "end_bend"
     BEND_ANGLE = "bend_angle"
@@ -64,6 +67,7 @@ class Problem:
         return self.code in (
             ProblemCode.MISSING_BEND_POINT, ProblemCode.DUPLICATE_BEND,
             ProblemCode.MATERIAL_CONFLICT, ProblemCode.END_BEND, ProblemCode.BEND_ANGLE,
+            ProblemCode.PIPE_SDR_MISMATCH,
         )
 
     def to_dict(self):
@@ -168,9 +172,9 @@ class Bend(BaseModel):
 
 class Pipe(BaseModel):
     material: str
-    sdr: float
+    sdr: float = Field(gt=0, allow_inf_nan=False)
     outer_diameter_mm: float = Field(gt=0, allow_inf_nan=False)
-    wall_mm: float
+    wall_mm: float = Field(gt=0, allow_inf_nan=False)
     standard: str | None = None
 
 

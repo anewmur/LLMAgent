@@ -16,6 +16,10 @@ def test_route_length_uses_validated_coordinates(route_data, string_coordinates)
     result = calculate_route_length(Project.model_validate(data))
 
     assert result["length_m"] == pytest.approx(360.0)
+    assert result["points"] == [
+        {"name": point["id"], "x": float(point["x"]), "y": float(point["y"]), "z": point["axis"]}
+        for point in data["points"]
+    ]
 
 
 @pytest.mark.parametrize(
@@ -91,6 +95,7 @@ def test_missing_axis_affects_only_neighboring_slopes(route_data, tmp_path, conf
     sections = result["sections"]
     assert sections[2]["slope_per_mille"] is None  # P2\u2013P3
     assert sections[3]["slope_per_mille"] is None  # P3\u2014P4
+    assert result["points"][3] == {"name": "P3", "x": 120, "y": 80, "z": None}
     assert [
         sections[index]["slope_per_mille"] for index in (0, 1, 4)
     ] == pytest.approx([10 / 3, 10 / 3, 2.5])

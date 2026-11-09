@@ -8,6 +8,7 @@ from core import calculations, release as release_module
 from core.assumptions import COORDINATE_ORIENTATION_NOTE, SHARED_ASSUMPTIONS
 from core.checks import base as checks_module
 from core.documents import DocumentSet
+from core.formatting import format_pipe_value
 from core.models import Status
 from core.package_checks import PackageChecks
 from core.plan import PlanDrawing
@@ -22,13 +23,13 @@ NS = {"s": "http://www.w3.org/2000/svg"}
 
 def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config, monkeypatch):
     folder = tmp_path / "output"
-    for p5_x, diameter, length in [(280, 110, "360,00"), (300, 160, "380,00")]:
+    for p5_x, diameter, wall, length in [(280, 110, 6.6, "360,00"), (300, 160, 9.5, "380,00")]:
         for stale in ["old.svg", "changes.md", "pdf/NV.pdf", "old/nested/preview.png"]:
             path = folder / stale
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"old release")
         route_data["points"][-1]["x"] = p5_x
-        route_data["pipe"]["outer_diameter_mm"] = diameter
+        route_data["pipe"].update(outer_diameter_mm=diameter, wall_mm=wall)
         route_data["object"].update(project_code="OTHER-07", name="Другой объект $100 & участок")
         project, _ = validate_input(route_data)
         with monkeypatch.context() as patch:
@@ -59,7 +60,7 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
                 assert len(notes) == 6
                 pipe_note = " ".join(" ".join(notes[2].itertext()).split())
                 assert pipe_note == (f"Проектируемая сеть В1 — подземный напорный водопровод из труб "
-                                     f"ПЭ 100 SDR 17 {diameter}×6,6. Длина трассы — {length} м.")
+                                     f"ПЭ 100 SDR 17 {diameter}×{format_pipe_value(wall)}. Длина трассы — {length} м.")
             assert (root.find(".//s:text[@x='157.5'][@y='36.5']", NS).text or "") == number
             assert (root.find(".//s:text[@x='175'][@y='36.5']", NS).text or "") == total
     path = folder / "profile.svg"
@@ -78,7 +79,7 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
 
 
 def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_data, tmp_path, config, monkeypatch):
-    route_data["pipe"]["outer_diameter_mm"] = 250
+    route_data["pipe"].update(outer_diameter_mm=250, wall_mm=14.8)
     project, problems = validate_input(route_data)
     assert not problems
     monkeypatch.setattr(release_module, "PlanDrawing", lambda project, document: PlanDrawing(project, document, scale=2000))

@@ -192,3 +192,28 @@ def test_pipe_noop_and_errors_keep_project_history_and_files(input_file, tmp_pat
     assert session.project.model_dump() == before_project
     assert not session.changes
     assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
+
+
+@pytest.mark.parametrize("operation", ["release", "update"])
+def test_sdr_mismatch_keeps_project_history_and_output(input_file, route_data, tmp_path, config,
+                                                       write_route, monkeypatch, operation):
+    folder = tmp_path / "output"
+    session = RouteSession(input_file, folder, config)
+    assert session.release()["status"] == "ok"
+    if operation == "release":
+        route_data["pipe"]["outer_diameter_mm"] = 160
+        session = RouteSession(write_route(route_data, "invalid.json"), folder, config)
+    before = session.project.model_dump()
+    before_problems = session.problems.copy()
+    before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
+    export = Mock(side_effect=AssertionError("Несогласованная труба не должна запускать выпуск"))
+    monkeypatch.setattr(session_module, "create_package", export)
+
+    result = session.update_pipe(outer_diameter=160) if operation == "update" else session.release()
+
+    assert result["status"] == "error"
+    assert any(problem["where"] == "pipe" and "SDR" in problem["message"] for problem in result["problems"])
+    assert session.project.model_dump() == before and session.problems == before_problems
+    assert not session.changes
+    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
+    export.assert_not_called()

@@ -4,6 +4,7 @@ import pytest
 
 from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
+from core.formatting import format_pipe_value
 from core.models import DocumentId
 from core.profile import ProfileDrawing
 from core.profile_style import ProfileStyle
@@ -15,11 +16,11 @@ NS = {"s": "http://www.w3.org/2000/svg"}
 
 
 def test_profile_geometry_scales_and_pipe_contours(route_data, config):
-    for p5_x, diameter, length, origin_x in [
-        (280, 110, 360, 164.5), (300, 160, 380, 159.5), (280, 250, 360, 164.5),
+    for p5_x, diameter, wall, length, origin_x in [
+        (280, 110, 6.6, 360, 164.5), (300, 160, 9.5, 380, 159.5), (280, 250, 14.8, 360, 164.5),
     ]:
         route_data["points"][-1]["x"] = p5_x
-        route_data["pipe"]["outer_diameter_mm"] = diameter
+        route_data["pipe"].update(outer_diameter_mm=diameter, wall_mm=wall)
         route_data["object"]["project_code"] = "OTHER-78"
         project, problems = validate_input(route_data)
         assert not problems
@@ -53,7 +54,7 @@ def test_profile_geometry_scales_and_pipe_contours(route_data, config):
         assert ground.get("stroke-width") == "0.45"
         text = " ".join(root.itertext())
         assert all(value in text for value in ["OTHER-78-НВ", "1:2000", "1:100", "Без изоляции"])
-        assert f"SDR 17 ⌀{diameter}×6,6" in text
+        assert f"SDR 17 ⌀{diameter}×{format_pipe_value(wall)}" in text
         level = root.find(".//s:text[@data-kind='bottom-level']", NS)
         assert level.get("transform") == "translate(74.5 7.5) rotate(-90)"
 
@@ -137,6 +138,11 @@ def test_font_tool_reissues_sheet_and_preserves_it_when_size_does_not_fit(input_
         assert result["status"] == "ok", result
         assert session.font_size == size
         assert (folder / "pdf/profile.pdf").exists()
+        if size == 2.5:
+            before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
+            assert session.change_profile_font(-1) == {"status": "ok", "message": "Значения не изменились."}
+            assert session.font_size == 2.5 and len(session.changes) == 1
+            assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
         geometry = ET.parse(folder / "profile.svg").getroot().find("s:g[@id='profile-geometry']", NS)
         assert float(geometry.get("data-font-size")) == size
     previous = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}

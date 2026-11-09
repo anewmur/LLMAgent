@@ -1,6 +1,11 @@
 import json
+import re
 
-from agent.settings import MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY
+from agent.settings import (
+    EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY,
+    ROUND_LIMIT_RESPONSE, SOURCE_PATTERN,
+    SOURCE_WARNING_TEMPLATE, TOOL_LOG_TEMPLATE, TURN_CONTEXT_TEMPLATE,
+)
 from agent.tools import TOOLS
 from core.models import Status
 
@@ -13,11 +18,14 @@ class RouteAgent:
         """Сохраняет клиент, инструменты и настройки, начинает историю системным промптом."""
         self.client, self.handlers = client, handlers
         self.model, self.max_rounds = model, max_rounds
-        self.tool_log = tool_log
+        self.tool_log = [] if tool_log is None else tool_log
+        self.turn = 0
         self.messages = [{"role": "system", "content": system_prompt}]
 
     def ask(self, question) -> str:
         """Добавляет вопрос в историю и возвращает ответ после вызовов инструментов."""
+        self.turn += 1
+        self.messages.append({"role": "system", "content": TURN_CONTEXT_TEMPLATE.format(turn=self.turn)})
         self.messages.append({"role": "user", "content": question})
         for _ in range(self.max_rounds):
             response = self.client.chat.completions.create(
@@ -28,11 +36,13 @@ class RouteAgent:
             message = first_choice.message
             self.messages.append(message.model_dump(exclude_none=True))
             if not message.tool_calls:
-                return message.content or "Модель не вернула текст ответа."
+                text = message.content or EMPTY_RESPONSE
+                self.check_sources(text)
+                return text
             for call in message.tool_calls:
                 self.run_tool(call)
 
-        text = "Не удалось завершить ответ: превышено число обращений к модели."
+        text = ROUND_LIMIT_RESPONSE
         self.messages.append({"role": "assistant", "content": text})
         return text
 
@@ -44,10 +54,20 @@ class RouteAgent:
             result = handler(**args)
         except (KeyError, OSError, ValueError, TypeError) as error:
             result = {"status": Status.ERROR, "message": str(error)}
-        if self.tool_log is not None:
-            self.tool_log.append({"tool": call.function.name, "arguments": call.function.arguments, "result": result})
-            print(f"[журнал] {call.function.name}({call.function.arguments}) -> {result.get('status', Status.OK)}")
+        self.tool_log.append({"turn": self.turn, "tool": call.function.name,
+                              "arguments": call.function.arguments, "result": result})
+        print(TOOL_LOG_TEMPLATE.format(turn=self.turn, tool=call.function.name,
+                                       arguments=call.function.arguments, status=result.get("status", Status.OK)))
         self.messages.append({
             "role": "tool", "tool_call_id": call.id,
             "content": json.dumps(result, ensure_ascii=False),
         })
+
+    def check_sources(self, text):
+        """Предупреждает, если инструмент не вызывался в указанном вопросе."""
+        for source, turn_text in re.findall(SOURCE_PATTERN, text):
+            source_turn = int(turn_text)
+            if not any(entry.get("tool") == source and entry.get("turn") == source_turn for entry in self.tool_log):
+                warning = SOURCE_WARNING_TEMPLATE.format(source=source, turn=source_turn)
+                print(warning)
+                self.tool_log.append({"turn": self.turn, "warning": warning})
