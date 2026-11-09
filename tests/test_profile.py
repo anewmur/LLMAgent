@@ -140,7 +140,7 @@ def test_font_tool_reissues_sheet_and_preserves_it_when_size_does_not_fit(input_
         result = session.change_profile_font(direction)
         assert result["status"] == "ok", result
         assert session.font_size == size
-        assert (folder / "pdf/profile.pdf").exists()
+        assert (folder / "pdf/package.pdf").exists()
         if size == 2.5:
             before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
             assert session.change_profile_font(-1) == {"status": "ok", "message": "Значения не изменились."}
@@ -148,7 +148,6 @@ def test_font_tool_reissues_sheet_and_preserves_it_when_size_does_not_fit(input_
             assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
         geometry = ET.parse(folder / "profile.svg").getroot().find("s:g[@id='profile-geometry']", NS)
         assert float(geometry.get("data-font-size")) == size
-    previous = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
     assert session.change_profile_font(1)["status"] == "error"
     assert session.font_size == DEFAULT_FONT_SIZE_MM and len(session.changes) == 2
-    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == previous
+    assert {path.name for path in folder.iterdir()} == {"check_report.md"}

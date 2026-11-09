@@ -1,6 +1,7 @@
 from pypdf import PdfReader
+from reportlab.graphics import renderPDF
 
-from core.sheet import svg_to_pdf
+from core.sheet import svg_drawing
 from core.sheet import Sheet
 
 
@@ -11,7 +12,7 @@ def test_pdf_preserves_requisites_and_cyrillic(tmp_path):
     sheet.number = 1
     svg_path.write_text(sheet.render(), encoding="utf-8")
 
-    svg_to_pdf(svg_path, pdf_path)
+    renderPDF.drawToFile(svg_drawing(svg_path), str(pdf_path))
 
     reader = PdfReader(pdf_path)
     page = reader.pages[0]

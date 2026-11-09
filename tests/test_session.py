@@ -4,6 +4,8 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+from core.documents import DocumentSet
+from core.plan import PlanDrawing
 from core import session as session_module
 from core.assumptions import load_assumptions
 from core.session import RouteSession
@@ -33,13 +35,17 @@ def test_release_returns_assumptions_from_report(route_data, write_route, tmp_pa
     section = report.split("## Допущения\n\n", 1)[1].split("\n\n## Ограничения", 1)[0]
     lines = section.strip().splitlines()
     assert lines and all(line.startswith("- ") for line in lines)
-    items = load_assumptions(config, session.project, 100)
+    items = load_assumptions(
+        config, session.project, 100,
+        PlanDrawing(session.project, DocumentSet(session.project, config).get(DocumentId.PLAN)).scale,
+    )
     assert [line.removeprefix("- ") for line in lines] == [item.full for item in items]
     key_items = [item for item in items if item.key]
     assert {item.id for item in key_items} == {
         "coordinate_system", "network_ground", "bend_material", "profile_insulation", "missing_levels", "pipe_quantity", "symbolic_bends",
     }
     assert result["assumptions"] == [item.short for item in key_items]
+    assert result["assumptions_count"] == len(items)
     root = ET.parse(session.output_dir / "general.svg").getroot()
     blocks = root.findall(".//s:g[@data-assumption-id]", NS)
     assert [block.get("data-assumption-id") for block in blocks] == [item.id for item in key_items]
@@ -55,14 +61,14 @@ def test_failed_release_has_no_assumptions(route_data, write_route, tmp_path, co
     if failure == "invalid_data":
         route_data["points"][3]["axis"] = None
     else:
-        route_data["points"][-1]["x"] = 800
+        route_data["points"][-1]["x"] = 10000
     session = RouteSession(write_route(route_data), tmp_path / "output", config)
 
     result = session.release()
 
     assert result["status"] == "error", result
     assert "assumptions" not in result
-    assert not session.output_dir.exists()
+    assert {path.name for path in session.output_dir.iterdir()} == {"check_report.md"}
 
 
 def test_session_updates_380_accumulates_history_and_restarts(input_file, tmp_path, config):
@@ -73,8 +79,14 @@ def test_session_updates_380_accumulates_history_and_restarts(input_file, tmp_pa
     assert not (folder / "changes.md").exists()
     result = session.update_point("P5", x=300)
     assert result["status"] == "ok", result
-    assert "assumptions" not in result
     assert session.project.points[-1].x == 300
+    drawing = PlanDrawing(session.project, DocumentSet(session.project, config).get(DocumentId.PLAN))
+    items = load_assumptions(
+        config, session.project, 100,
+        drawing.scale,
+    )
+    assert result["assumptions_count"] == len(items)
+    assert result["assumptions"] == [item.short for item in items if item.key]
     assert session.calculate_route_length()["length_m"] == 380
     assert session.calculate_material_quantities()["pipe"]["quantity_m"] == 380
     values = {value["name"]: (value["before"], value["after"]) for value in result["changes"]["values"]}
@@ -193,23 +205,27 @@ def test_invalid_update_keeps_project_history_and_files(input_file, route_data, 
     folder = tmp_path / "output"
     session = RouteSession(input_file, folder, config)
     assert session.release()["status"] == "ok"
+    before_files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
     if case == "material_conflict":
         route_data["pipe"]["material"] = "ПЭ 80"
         bad_input = write_route(route_data, "conflict.json")
         session = RouteSession(bad_input, folder, config)
     before_project = session.project.model_dump()
-    before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
     export = Mock(side_effect=AssertionError("Ошибочные данные не должны запускать выпуск"))
     monkeypatch.setattr(session_module, "create_package", export)
     result = session.update_point("P3", axis=None) if case == "missing_axis" else session.update_point("P5", x=300)
     assert result["status"] == "error"
-    assert result["message"] == (
-        "Изменение не применено: новые данные не прошли проверку, текущая трасса не изменилась."
-    )
     assert any(problem["where"] == ("P3" if case == "missing_axis" else "pipe") for problem in result["problems"])
-    assert session.project.model_dump() == before_project
-    assert not session.changes
-    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
+    if case == "missing_axis":
+        assert session.project.points[3].axis is None and len(session.changes) == 1
+        assert result["problems"][0]["code"] == "missing_axis"
+    else:
+        assert "Изменение не применено" in result["message"]
+        assert session.project.model_dump() == before_project and not session.changes
+    if case == "missing_axis":
+        assert {path.name for path in folder.iterdir()} == {"check_report.md"}
+    else:
+        assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == before_files
     export.assert_not_called()
 
 
@@ -220,7 +236,7 @@ def test_pipe_update_resolves_material_conflict(route_data, tmp_path, config, wr
     folder = tmp_path / "output"
     session = RouteSession(input_file, folder, config)
     assert session.release()["status"] == "error"
-    assert not folder.exists()
+    assert {path.name for path in folder.iterdir()} == {"check_report.md"}
 
     result = session.update_pipe(material="ПЭ 100")
 
@@ -236,12 +252,27 @@ def test_pipe_update_resolves_material_conflict(route_data, tmp_path, config, wr
     assert input_file.read_bytes() == original
 
 
+def test_rejected_point_update_preserves_published_package(input_file, tmp_path, config):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    assert session.release()["status"] == "ok"
+    published = {path.relative_to(session.output_dir): path.read_bytes()
+                 for path in session.output_dir.rglob("*") if path.is_file()}
+    previous_project = session.project.model_dump()
+    result = session.update_point("P5", y=100)
+    assert result["status"] == "error" and result["released"] is False and result["problems"]
+    assert session.project.model_dump() == previous_project and not session.changes
+    assert (session.output_dir / "plan.svg").is_file()
+    assert (session.output_dir / "pdf/package.pdf").is_file()
+    assert {path.relative_to(session.output_dir): path.read_bytes()
+            for path in session.output_dir.rglob("*") if path.is_file()} == published
+
+
 def test_pipe_noop_and_errors_keep_project_history_and_files(input_file, tmp_path, config, monkeypatch):
     folder = tmp_path / "output"
     session = RouteSession(input_file, folder, config)
     assert session.release()["status"] == "ok"
+    before_files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
     before_project = session.project.model_dump()
-    before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
     validation = Mock(wraps=session_module.validate_input)
     export = Mock(return_value={"status": "error", "message": "Ошибка выпуска"})
     monkeypatch.setattr(session_module, "validate_input", validation)
@@ -257,7 +288,7 @@ def test_pipe_noop_and_errors_keep_project_history_and_files(input_file, tmp_pat
     export.assert_called_once()
     assert session.project.model_dump() == before_project
     assert not session.changes
-    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
+    assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == before_files
 
 
 @pytest.mark.parametrize("operation", ["release", "update"])
@@ -266,12 +297,12 @@ def test_sdr_mismatch_keeps_project_history_and_output(input_file, route_data, t
     folder = tmp_path / "output"
     session = RouteSession(input_file, folder, config)
     assert session.release()["status"] == "ok"
+    before_files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
     if operation == "release":
         route_data["pipe"]["outer_diameter_mm"] = 160
         session = RouteSession(write_route(route_data, "invalid.json"), folder, config)
     before = session.project.model_dump()
     before_problems = session.problems.copy()
-    before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
     export = Mock(side_effect=AssertionError("Несогласованная труба не должна запускать выпуск"))
     monkeypatch.setattr(session_module, "create_package", export)
 
@@ -281,12 +312,15 @@ def test_sdr_mismatch_keeps_project_history_and_output(input_file, route_data, t
     assert any(problem["where"] == "pipe" and "SDR" in problem["message"] for problem in result["problems"])
     assert session.project.model_dump() == before and session.problems == before_problems
     assert not session.changes
-    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
+    if operation == "release":
+        assert {path.name for path in folder.iterdir()} == {"check_report.md"}
+    else:
+        assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == before_files
     export.assert_not_called()
 
 
 def test_second_route_releases_250_metres_and_updates_without_changing_source(tmp_path, config):
-    input_file = PROJECT_ROOT / "input" / "examples" / "route_2.json"
+    input_file = PROJECT_ROOT / "input" / "examples" / "alternate.json"
     original = input_file.read_bytes()
     folder = tmp_path / "output"
     session = RouteSession(input_file, folder, config)
@@ -298,7 +332,8 @@ def test_second_route_releases_250_metres_and_updates_without_changing_source(tm
     assert session.project.bends[0].angle_deg == 90
     released = session.release()
     assert released["status"] == "ok", released
-    assert (folder / "pdf/package.pdf").is_file() and (folder / "tool_log.md").is_file()
+    assert (folder / "pdf/package.pdf").is_file()
+    assert not (folder / "tool_log.md").exists()
 
     updated = session.update_point("P4", y=90)
     assert updated["status"] == "ok", updated
@@ -316,6 +351,7 @@ def test_tool_journal_escapes_cells_and_new_session_starts_empty(input_file, tmp
     ])
 
     assert session.release()["status"] == "ok"
+    session.save_tool_log()
     journal = (folder / "tool_log.md").read_text(encoding="utf-8")
     assert "| Вопрос | Инструмент | Аргументы | Статус |" in journal
     assert '| 1 | update_pipe | {"material": "А\\|Б"}<br> | error |' in journal
@@ -324,13 +360,14 @@ def test_tool_journal_escapes_cells_and_new_session_starts_empty(input_file, tmp
     fresh = RouteSession(input_file, folder, config)
     assert fresh.release()["status"] == "ok"
     assert fresh.tool_log == []
+    fresh.save_tool_log()
     journal = (folder / "tool_log.md").read_text(encoding="utf-8")
     assert "update_pipe" not in journal and "Источник не вызывался" not in journal
 
 
 def test_load_route_replaces_project_and_resets_changes_and_font(input_file, tmp_path, config):
     original = input_file.read_bytes()
-    route_file = PROJECT_ROOT / "input" / "examples" / "route_2.json"
+    route_file = PROJECT_ROOT / "input" / "examples" / "alternate.json"
     route_bytes = route_file.read_bytes()
     folder = tmp_path / "output"
     session = RouteSession(input_file, folder, config)
@@ -339,7 +376,7 @@ def test_load_route_replaces_project_and_resets_changes_and_font(input_file, tmp
     assert session.changes and session.font_size == 2.5
     journal = session.tool_log
 
-    result = session.load_route("input/examples/route_2.json")
+    result = session.load_route("input/examples/alternate.json")
 
     assert {key: result[key] for key in ("status", "object_name", "point_count", "length_m")} == {
         "status": "ok", "object_name": "Учебный водопровод, трасса 2", "point_count": 5, "length_m": 250}
@@ -397,7 +434,6 @@ def test_loaded_route_can_be_corrected_after_failed_release(input_file, route_da
     assert session.update_point("P5", x=300)["status"] == "ok"
     assert session.change_profile_font(-1)["status"] == "ok"
     previous_project = session.project
-    before_files = {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()}
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     monkeypatch.setattr(session_module, "PROJECT_ROOT", tmp_path)
@@ -405,7 +441,7 @@ def test_loaded_route_can_be_corrected_after_failed_release(input_file, route_da
     if case == "blocked_data":
         route_data["points"][3].pop("axis")
     else:
-        route_data["points"][-1]["x"] = 800
+        route_data["points"][-1]["x"] = 10000
     route_file = write_route(route_data, "input/route.json")
     original = route_file.read_bytes()
 
@@ -414,13 +450,13 @@ def test_loaded_route_can_be_corrected_after_failed_release(input_file, route_da
     assert result["status"] == "error" and session.project is not previous_project
     assert result["message"] == LOAD_ROUTE_DATA_ERROR
     assert session.changes == [] and session.font_size == DEFAULT_FONT_SIZE_MM
-    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before_files
+    assert {path.name for path in folder.iterdir()} == {"check_report.md"}
     if case == "blocked_data":
-        assert any(problem["where"] == "P3" and "axis" in problem["message"] for problem in result["problems"])
+        assert any(problem["where"] == "P3" and problem["code"] == "missing_axis" for problem in result["problems"])
         assert session.project.points[3].axis is None and session.project.points[-1].x == 280
         repaired = session.update_point("P3", axis=100.6)
     else:
-        assert session.project.points[-1].x == 800
+        assert session.project.points[-1].x == 10000
         repaired = session.update_point("P5", x=280)
     assert repaired["status"] == "ok", repaired
     assert session.calculate_route_length()["length_m"] == 360 and not session.problems
@@ -450,13 +486,13 @@ def test_lateral_insert_is_atomic_and_can_be_retried_with_one_bend(route_data, w
     route_data["bends"] = []
     session = RouteSession(write_route(route_data), tmp_path / "output", config)
     assert session.release()["status"] == "ok"
+    before_files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
     before = session.project.model_dump()
-    files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
     rejected = session.add_point("P1a", "P0", 60, 60, 102.6, 100.2)
     assert rejected["status"] == "error" and "Изменение не применено" in rejected["message"]
     assert any(problem["where"] == "P1a" and "90,00 без отвода" in problem["message"] for problem in rejected["problems"])
     assert session.project.model_dump() == before and not session.changes
-    assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == files
+    assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == before_files
     accepted = session.add_point("P1a", "P0", 60, 60, 102.6, 100.2, bend_angle=90)
     assert accepted["status"] in ("ok", "warning"), accepted
     assert session.calculate_route_length()["length_m"] == pytest.approx(120 * 2 ** 0.5)
@@ -603,13 +639,12 @@ def test_remove_point_rejects_too_few_points(route_data, write_route, tmp_path, 
     route_data["bends"] = []
     session = RouteSession(write_route(route_data), tmp_path / "output", config)
     assert session.release()["status"] == "ok"
+    before_files = {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()}
     before = session.project.model_dump()
-    files = {path.relative_to(session.output_dir): path.read_bytes()
-             for path in session.output_dir.rglob("*") if path.is_file()}
     rejected = session.remove_point("P1")
     assert rejected["status"] == "error" and len(session.project.points) == 2
     assert len(rejected["problems"]) == 1 and rejected["problems"][0]["where"] == "points"
     assert "at least 2 items" in rejected["problems"][0]["message"]
     assert session.project.model_dump() == before and not session.changes
-    assert {path.relative_to(session.output_dir): path.read_bytes()
-            for path in session.output_dir.rglob("*") if path.is_file()} == files
+    assert {path.relative_to(session.output_dir): path.read_bytes() for path in session.output_dir.rglob("*") if path.is_file()} == before_files
+    assert rejected["problems"][0]["code"] == "structure"

@@ -98,7 +98,7 @@ class PlanChecks(BaseChecks):
         labels = list(self.plan_labels(group, 0))
         line = root.find(".//s:polyline[@id='route-line']", NS)
         points = [tuple(map(float, point.split(","))) for point in line.get("points").split()]
-        scale = float(root.find("s:g[@id='route-geometry']", NS).get("data-scale", settings.PLAN_SCALE))
+        scale = float(root.find("s:g[@id='route-geometry']", NS).get("data-scale"))
         diameter = self.project.pipe.outer_diameter_mm / scale
         tolerance = float(line.get("stroke-width")) / 2
         warnings = []

@@ -51,3 +51,10 @@ def labels_too_close(bounds, other):
     vertical_gap = max(other[1] - bounds[3], bounds[1] - other[3], 0)
     distance = hypot(horizontal_gap, vertical_gap)
     return distance + settings.GEOMETRY_TOLERANCE_MM < settings.LABEL_MIN_GAP_MM
+
+
+def plan_label_width(name, station, coordinates):
+    """Возвращает ширину блока подписей плана по общим размерам шрифтов, мм листа."""
+    return max(text_width(name, settings.PLAN_FONT_SIZE_MM),
+               text_width(station, settings.PLAN_FONT_SIZE_MM),
+               text_width(coordinates, settings.PLAN_COORDINATE_FONT_SIZE_MM))

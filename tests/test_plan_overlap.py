@@ -20,7 +20,7 @@ def test_overlap_checks_label_pairs_and_diagonal_route(route_data, tmp_path, con
     checks = PlanChecks(CheckContext(project, DocumentSet(project, config), tmp_path))
     checks.roots["plan"] = ET.fromstring(f'''
         <svg xmlns="http://www.w3.org/2000/svg">
-          <g id="route-geometry"><polyline id="route-line" points="0,0 20,20" stroke-width="0.7"/></g>
+          <g id="route-geometry" data-scale="1000"><polyline id="route-line" points="0,0 20,20" stroke-width="0.7"/></g>
           <g id="route-labels" font-size="{DEFAULT_FONT_SIZE_MM}">
             <text data-kind="point-name" x="10" y="13.5">P1</text>
             <text data-kind="station" data-point-id="P2" x="11" y="13.5">ПК</text>
@@ -64,22 +64,22 @@ def test_reference_is_clear_and_close_points_publish_and_commit_warning(input_fi
     assert any(check["id"] == "plan_label_overlap" and check["passed"] for check in reference["checks"])
     assert not any(check["level"] == "warning" for check in reference["checks"])
 
-    # P0 и P1 находятся в 2 м друг от друга; блоки с одной стороны действительно пересекаются.
+    # Блоки плана разносятся; слишком близкие точки профиля по-прежнему дают предупреждение.
     result = session.update_point("P1", x=2)
 
     assert result["status"] == "warning", result
-    assert "assumptions" not in result
+    assert result["assumptions_count"] >= len(result["assumptions"]) > 0
     assert session.project.points[1].x == 2
     assert len(session.changes) == 1
-    assert any(message.startswith("План:") for message in result["warnings"])
-    assert any('"P0" и "P1"' in message for message in result["warnings"])
+    assert not any(message.startswith("План:") for message in result["warnings"])
     assert any(message.startswith("Профиль:") for message in result["warnings"])
     assert (folder / "pdf/package.pdf").is_file()
     assert (folder / "changes.md").is_file()
     report = (folder / "check_report.md").read_text(encoding="utf-8")
     assert "Результат выпуска: **warning**" in report
     assert "Предупреждение" in report and "plan_label_overlap" in report
-    assert "Подписи на плане размещаются по простым правилам. Пересечения обнаруживаются приближённо (по оценке габаритов текста) и не исправляются автоматически." in report
+    overlap_note = next(item for item in config["assumptions"] if item["id"] == "label_overlap")
+    assert overlap_note["full"] in report
     assert "transform rotate автоматически не проверяются на пересечения" not in report
     published = ET.parse(folder / "plan.svg").getroot()
     expected = ET.fromstring(PlanDrawing(session.project, DocumentSet(session.project, config).get(DocumentId.PLAN)).render())

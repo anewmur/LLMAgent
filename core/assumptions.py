@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from core import drawing_settings as settings
 from core.formatting import format_pipe_value
-from core.pipe_drawing import pipe_line_count
+from core.pipe_drawing import pipe_line_count, pipe_line_description
 
 
 @dataclass(frozen=True)
@@ -17,7 +17,7 @@ class Assumption:
     key: bool = False
 
 
-def load_assumptions(config, project, vertical_scale) -> list[Assumption]:
+def load_assumptions(config, project, vertical_scale, plan_scale) -> list[Assumption]:
     """Подставляет данные проекта в YAML-шаблоны, сохраняя их порядок."""
     diameter = project.pipe.outer_diameter_mm
     on_paper = diameter / vertical_scale
@@ -25,7 +25,7 @@ def load_assumptions(config, project, vertical_scale) -> list[Assumption]:
     pipe_lines = pipe_line_count(diameter, vertical_scale)
     values = {
         "network_code": settings.NETWORK_CODE,
-        "axis_note": config["axis_notes"][bool(settings.DRAW_PIPE_AXIS and pipe_line_count(diameter, settings.PLAN_SCALE) == 2)],
+        "line_description": pipe_line_description(config, project.pipe, plan_scale, vertical_scale),
         "insulation": project.pipe.insulation or config["profile"]["default_insulation"],
         "diameter": format_pipe_value(diameter), "vertical_scale": format_pipe_value(vertical_scale),
         "on_paper": format_pipe_value(on_paper),
@@ -39,4 +39,9 @@ def load_assumptions(config, project, vertical_scale) -> list[Assumption]:
     }
     return [Assumption(item["id"], item["full"].format(**values).strip(), item["short"].format(**values).strip(), item.get("key", False))
             for item in config["assumptions"]
-            if item.get("plan_lines") in (None, pipe_line_count(diameter, settings.PLAN_SCALE))]
+            if item.get("plan_lines") in (None, pipe_line_count(diameter, plan_scale))]
+
+
+def assumption_summary(items):
+    """Возвращает число всех принятых допущений и ключевые формулировки для агента."""
+    return {"assumptions_count": len(items), "assumptions": [item.short for item in items if item.key]}

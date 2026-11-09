@@ -100,7 +100,7 @@ def test_missing_axis_affects_only_neighboring_slopes(route_data, tmp_path, conf
         sections[index]["slope_per_mille"] for index in (0, 1, 4)
     ] == pytest.approx([10 / 3, 10 / 3, 2.5])
     assert any(
-        problem["where"] == "P3" and "axis" in problem["message"]
+        problem["where"] == "P3" and problem["code"] == "missing_axis"
         for problem in result["problems"]
     )
 

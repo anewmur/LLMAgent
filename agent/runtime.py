@@ -3,16 +3,17 @@ import re
 from time import perf_counter
 
 from agent.settings import (
-    EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY,
+    EMPTY_RESPONSE, MAX_TOOL_ROUNDS, MODEL, MODEL_EXTRA_BODY, MISSING_AXIS_REPLY, SOURCE_PREFIX, RELEASE_REFUSAL_PATTERN,
     RELEASE_CLAIM_PATTERN, RELEASE_NEGATION_PATTERN, RELEASE_WARNING_TEMPLATE,
     RELEASE_SUBJECT_PATTERN, RELEASE_SENTENCE_SEPARATOR,
     ROUND_LIMIT_RESPONSE, SOURCE_PATTERN, SOURCE_SEPARATOR,
     SOURCE_WARNING_TEMPLATE, TOOL_LOG_TEMPLATE, TURN_CONTEXT_TEMPLATE,
     USAGE_LOG_TEMPLATE, SESSION_USAGE_TEMPLATE, PRICE_NOTE,
 )
-from agent.tools import TOOLS, ToolName
+from agent.tools import TOOLS
 from agent.usage import TokenUsage, utc_now
-from core.models import Status
+from core.models import Status, ProblemCode
+from core.settings import RELEASE_REFUSED_STATUS
 
 
 class RouteAgent:
@@ -66,6 +67,8 @@ class RouteAgent:
             self.messages.append(message.model_dump(exclude_none=True))
             if not message.tool_calls:
                 text = message.content or EMPTY_RESPONSE
+                text = self.missing_axis_reply(text) or text
+                self.messages[-1]["content"] = text
                 self.check_sources(text)
                 self.check_release_claim(text)
                 return text
@@ -93,13 +96,33 @@ class RouteAgent:
             "content": json.dumps(result, ensure_ascii=False),
         })
 
+    def missing_axis_reply(self, text):
+        """Подменяет ответ только при отсутствии отказа или имён точек с недостающими отметками."""
+        entries = [entry for entry in self.tool_log if entry.get("turn") == self.turn]
+        for entry in reversed(entries):
+            result = entry.get("result", {})
+            if result.get("released") is True:
+                return None
+            errors = [problem for problem in result.get("problems", []) if problem.get("level") == Status.ERROR]
+            missing = [problem for problem in errors if problem.get("code") == ProblemCode.MISSING_AXIS]
+            if result.get("status") == Status.ERROR and missing:
+                if re.search(RELEASE_REFUSAL_PATTERN, text) and all(problem["where"] in text for problem in missing):
+                    return None
+                details = "\n".join(f'{problem["where"]} — {problem["message"]}' for problem in errors)
+                return MISSING_AXIS_REPLY.format(
+                    status=RELEASE_REFUSED_STATUS, details=details,
+                    points=", ".join(problem["where"] for problem in missing), source_prefix=SOURCE_PREFIX,
+                    tool=entry["tool"], turn=self.turn,
+                )
+        return None
+
     def check_release_claim(self, text):
         """Предупреждает о заявлении выпуска без успешного инструмента в текущем вопросе."""
         claims = [match for sentence in re.split(RELEASE_SENTENCE_SEPARATOR, text)
                   if re.search(RELEASE_SUBJECT_PATTERN, sentence)
                   for match in re.finditer(RELEASE_CLAIM_PATTERN, sentence)
                   if not re.search(RELEASE_NEGATION_PATTERN, sentence[:match.start()])]
-        released = any(entry.get("turn") == self.turn and entry.get("tool") == ToolName.RELEASE_DOCUMENTS
+        released = any(entry.get("turn") == self.turn and entry.get("result", {}).get("released") is True
                        and entry.get("result", {}).get("status") in (Status.OK, Status.WARNING)
                        for entry in self.tool_log)
         if claims and not released:

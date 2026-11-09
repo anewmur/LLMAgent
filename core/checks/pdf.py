@@ -24,12 +24,10 @@ class PdfChecks(BaseChecks):
             values += [f"X={format_number(point.x)}, Y={format_number(point.y)}" for point in self.project.points]
         return values
 
-    def check_pdf_page(self, doc):
+    def check_pdf_page(self, doc, page):
         """Проверяет открытие PDF листа, его обозначение и расчётные значения."""
         name = "pdf_" + doc["id"]
-        stem = doc["id"]
-        reader = PdfReader(self.folder / "pdf" / f"{stem}.pdf")
-        text = "\n".join(page.extract_text() for page in reader.pages)
+        text = page.extract_text() or ""
         if doc["designation"] not in text:
             self.add(name, False, "В PDF отсутствует обозначение.")
             return
@@ -42,11 +40,12 @@ class PdfChecks(BaseChecks):
 
     def check_pdf(self):
         """Проверяет PDF листов и число страниц объединённого файла."""
-        for doc in self.documents.items:
-            self.check_pdf_page(doc)
-        if len(PdfReader(self.folder / "pdf" / "package.pdf").pages) != len(self.documents.items):
+        reader = PdfReader(self.folder / "pdf/package.pdf")
+        if len(reader.pages) != len(self.documents.items):
             self.add("merged_pdf", False, "Неверное число страниц: package.pdf")
             return
+        for document, page in zip(self.documents.items, reader.pages):
+            self.check_pdf_page(document, page)
         self.add("merged_pdf", True, "Количество страниц package.pdf совпадает с составом выпуска.")
 
     def run(self):

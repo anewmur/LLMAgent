@@ -4,7 +4,6 @@ from core import drawing_settings as settings
 from core.calculations import calculate_route_geometry
 from core.formatting import format_number, format_pipe_value, render_template
 from core.models import DocumentId
-from core.pipe_drawing import pipe_line_count
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
 from core.tables import RegisterTable, TextBlock
@@ -63,8 +62,8 @@ class GeneralData:
                             f"{format_pipe_value(pipe.outer_diameter_mm)}×{format_pipe_value(pipe.wall_mm)}")
         length = calculate_route_geometry(self.project.points)["length_m"]
         values = {item.id: item.full for item in self.items}
-        pipe_note = next(item for item in self.items if item.id == "pipe_note")
-        values.update(axis_note=self.config["axis_notes"][bool(settings.DRAW_PIPE_AXIS and pipe_line_count(pipe.outer_diameter_mm, settings.PLAN_SCALE) == 2)], pipe_note=pipe_note.short, network_code=settings.NETWORK_CODE, pipe=pipe_description, length=format_number(length))
+        values.update(network_code=settings.NETWORK_CODE,
+                      pipe=pipe_description, length=format_number(length))
         return [note.format(**values) for note in self.config["general_notes"]]
 
     def draw_assumptions(self):

@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from core.formatting import format_number, format_pipe_value
 from core.models import PIPE_WHERE, Level, Problem, ProblemCode, Project
-from core.settings import BEND_ANGLE_MESSAGE, MISSING_BEND_MESSAGE, PIPE_SDR_TOLERANCE
+from core.settings import BEND_ANGLE_MESSAGE, MISSING_BEND_MESSAGE, PIPE_SDR_TOLERANCE, MISSING_AXIS_MESSAGE
 
 
 ANGLE_TOLERANCE_DEG = 0.5  # Допуск сравнения угла отвода, градусы.
@@ -50,7 +50,7 @@ class InputValidator:
         for point in self.project.points:
             if point.axis is None:
                 self.problems.append(Problem(
-                    Level.ERROR, ProblemCode.MISSING_AXIS, "нет отметки оси трубы (axis)", point.id
+                    Level.ERROR, ProblemCode.MISSING_AXIS, MISSING_AXIS_MESSAGE, point.id
                 ))
             if point.ground is None:
                 self.problems.append(Problem(

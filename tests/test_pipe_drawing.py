@@ -83,7 +83,10 @@ def test_crowded_bend_warns_and_package_is_published(route_data, config, tmp_pat
     report = (tmp_path / "package/check_report.md").read_text(encoding="utf-8")
     assert "пп. 3.5, 3.7" in report and "пп. 3.8, 3.9, 3.11" in report
     assert "табл. 1, п. 8в" in report
-    items = load_assumptions(config, project, 100)
+    items = load_assumptions(
+        config, project, 100,
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).scale,
+    )
     assert all(item.full in report for item in items)
     assert any("Радиус отвода принят равным 1,5" in item.full for item in items)
     assert (tmp_path / "package/pdf/package.pdf").is_file()

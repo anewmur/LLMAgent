@@ -61,13 +61,14 @@ def main(argv=None):
     agent = RouteAgent(client, handlers, system_prompt, model=MODEL,
                        tool_log=session.tool_log)
     session.usage_log = agent.usage_log
+    session.save_tool_log()
     try:
-        run_dialogue(agent)
+        run_dialogue(agent, session)
     finally:
         session.save_tool_log()
 
 
-def run_dialogue(agent):
+def run_dialogue(agent, session):
     """Читает вопросы до выхода, сохраняя диалог в одном экземпляре агента."""
     print("Задайте вопрос о трассе. Для завершения введите «выход».")
 
@@ -87,6 +88,8 @@ def run_dialogue(agent):
         except APIError:
             print("Агент: Не удалось получить ответ модели. Результаты выполненных инструментов сохранены.")
             continue
+        finally:
+            session.save_tool_log()
         print(f"\nАгент: {answer}")
 
 

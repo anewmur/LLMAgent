@@ -41,3 +41,7 @@ TITLE_ADD_BEND = "Добавление отвода в {name}"
 TITLE_REMOVE_BEND = "Удаление отвода в {name}"
 LABEL_POINT_VALUE = "{name}, {label}"
 LABEL_BEND_ANGLE = "Угол отвода в {name}"
+
+# Единая причина отказа при отсутствии отметки оси; используется валидатором обоих сценариев.
+MISSING_AXIS_MESSAGE = "не задана отметка оси трубы; профиль и уклоны построить нельзя"
+RELEASE_REFUSED_STATUS = "Комплект не выпущен"

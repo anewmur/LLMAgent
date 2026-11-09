@@ -1,7 +1,6 @@
 from textwrap import wrap
 from xml.sax.saxutils import escape
 
-from reportlab.graphics import renderPDF
 from svglib.fonts import register_font
 from svglib.svglib import svg2rlg
 
@@ -72,13 +71,10 @@ class Sheet:
         })
 
 
-
-
-def svg_to_pdf(svg_path, pdf_path):
-    """Преобразовать SVG в PDF с явной картой шрифтов и кириллицей."""
+def svg_drawing(svg_path):
+    """Возвращает SVG-рисунок с зарегистрированным шрифтом для страницы PDF."""
     register_font(settings.FONT_FAMILY, str(FONT_PATH))
-
     drawing = svg2rlg(str(svg_path))
     if drawing is None:
         raise ValueError("Не удалось прочитать SVG")
-    renderPDF.drawToFile(drawing, str(pdf_path))
+    return drawing

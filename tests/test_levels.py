@@ -43,7 +43,7 @@ def test_missing_levels_keep_available_calculations(route_data, tmp_path, missin
     assert result["point_levels"][0]["depth_to_bottom_m"] == pytest.approx(2.455)
     for field in missing_fields:
         assert any(
-            problem["where"] == "P3" and field in problem["message"]
+            problem["where"] == "P3" and problem["code"] == {"axis": "missing_axis", "ground": "missing_ground"}[field]
             for problem in result["problems"]
         )
 

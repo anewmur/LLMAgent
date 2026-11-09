@@ -35,6 +35,7 @@ class Level(str, Enum):
 class ProblemCode(str, Enum):
     """Коды ошибок исходных данных и аргументов инструментов."""
     STRUCTURE = "structure"
+    RELEASE_FAILED = "release_failed"
     MISSING_AXIS = "missing_axis"
     MISSING_GROUND = "missing_ground"
     DUPLICATE_POINT = "duplicate_point"

@@ -9,6 +9,7 @@ from core.calculations import (
     load_project,
 )
 from core.documents import DocumentSet
+from core.check_report import CheckReport
 from core.formatting import render_template
 from core.paths import PROJECT_ROOT, TEMPLATES_DIR
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
@@ -17,7 +18,7 @@ from core.models import (
     PIPE_WHERE, Problem, ProblemCode, Status, UNIT_DEGREE, UNIT_M, UNIT_MM,
 )
 from core.profile_style import ProfileStyle
-from core.release import create_package
+from core.release import create_package, clear_output
 from core.settings import (
     INPUT_DIR, LOAD_ROUTE_DATA_ERROR, LOAD_ROUTE_ERROR, LOAD_ROUTE_PATH_ERROR, LOG_WARNING_LABEL, TOOL_LOG_FILENAME,
     UPDATE_REJECTED_MESSAGE, BEND_NOT_FOUND, BEND_FIELDS_REQUIRED,
@@ -45,7 +46,7 @@ INPUT_INVALID = "Исходные данные не прошли проверк�
 
 
 class RouteSession:
-    """Текущий проект и только успешно выпущенные изменения этой сессии."""
+    """Текущий редактируемый проект и принятые изменения этой сессии."""
 
     def __init__(self, input_file, output_dir, config):
         self.project, self.problems = load_project(input_file)
@@ -102,17 +103,20 @@ class RouteSession:
             return self.problem_response(Status.ERROR, blocking)
         return self.problem_response(Status.OK, self.problems, **calculate_material_quantities(self.project))
 
+    def refuse_release(self, problems):
+        """Очищает старый комплект и сохраняет отчёт об отказе по исходным данным."""
+        clear_output(self.output_dir)
+        result = self.problem_response(Status.ERROR, problems, released=False, message=INPUT_INVALID)
+        result["report"] = CheckReport.write_rejection(self.output_dir, result["problems"])
+        return result
+
     def release(self):
         """Возвращает результат выпуска, включая проверки и допущения отчёта."""
         if self.has_errors(self.project, self.problems):
-            return self.problem_response(Status.ERROR, self.problems, message=INPUT_INVALID)
+            return self.refuse_release(self.problems)
         result = create_package(self.project, self.output_dir, self.config, self.changes, self.font_size)
-        result["problems"] = [{"code": check.name, "level": check.status, "message": check.message}
-                              for check in result.get("checks", []) if check.status != Status.OK]
         if "checks" in result:
             result["checks"] = [check.to_dict() for check in result["checks"]]
-        if result["status"] != Status.ERROR:
-            self.save_tool_log()
         return result
 
     def load_route(self, path):
@@ -153,12 +157,18 @@ class RouteSession:
         return {fields[name].attribute: value for name, value in values.items()}
 
     def publish_update(self, data, make_changes):
-        """Проверяет новые данные и выпускает комплект; при ошибке проект не меняется."""
+        """Проверяет правку; отсутствие отметки оси сохраняет, остальные ошибки отклоняет."""
         if data == self.project.model_dump():
             return {"status": Status.OK, "message": VALUES_UNCHANGED}
         project, problems = validate_input(data)
         if self.has_errors(project, problems):
-            return self.problem_response(Status.ERROR, problems, message=UPDATE_REJECTED_MESSAGE)
+            errors = [problem for problem in problems if problem.level == Level.ERROR]
+            if project is not None and all(problem.code == ProblemCode.MISSING_AXIS for problem in errors):
+                change = make_changes(project)
+                self.project, self.problems = project, problems
+                self.changes.append(change)
+                return self.release()
+            return self.problem_response(Status.ERROR, problems, released=False, message=UPDATE_REJECTED_MESSAGE)
         return self.apply(project, make_changes(project), self.font_size)
 
     def all_sheets(self):
@@ -177,8 +187,8 @@ class RouteSession:
         self.project, self.font_size = project, font_size
         self.problems = []
         self.changes.append(change)
-        self.save_tool_log()
-        response = {"status": result["status"], "changes": asdict(change), "pdf": result["pdf"]}
+        response = {"status": result["status"], "released": True, "changes": asdict(change), "pdf": result["pdf"]}
+        response.update({name: result[name] for name in ("assumptions_count", "assumptions") if name in result})
         if result["status"] == Status.WARNING:
             response["warnings"] = [check.message for check in result.get("checks", [])
                                     if check.status == Status.WARNING]

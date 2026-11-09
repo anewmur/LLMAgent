@@ -55,7 +55,7 @@ def test_plan_geometry_scale_direction_and_fit(route_data, config):
         ]
 
     # \u0411\u043e\u043b\u044c\u0448\u0430\u044f \u0442\u0440\u0430\u0441\u0441\u0430 \u043d\u0435 \u0434\u043e\u043b\u0436\u043d\u0430 \u043c\u043e\u043b\u0447\u0430 \u043e\u0431\u0440\u0435\u0437\u0430\u0442\u044c\u0441\u044f \u0438\u043b\u0438 \u043c\u0435\u043d\u044f\u0442\u044c \u043c\u0430\u0441\u0448\u0442\u0430\u0431.
-    data["points"][-1]["x"] += 1000
+    data["points"][-1]["x"] += 10000
     project, problems = validate_input(data)
     assert not problems
     with pytest.raises(ValueError, match="не помещается"):
@@ -190,7 +190,7 @@ def test_point_label_blocks_stay_in_field_with_leaders(route_data, config):
     route_data["bends"] = []
     project, problems = validate_input(route_data)
     assert not problems
-    drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN))
+    drawing = PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN), scale=1000)
     root = ET.fromstring(drawing.render())
     ns = {"s": "http://www.w3.org/2000/svg"}
     blocks = root.findall(".//s:g[@data-kind='point-label']", ns)

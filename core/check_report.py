@@ -1,5 +1,6 @@
 from core import drawing_settings as settings
 from core.models import CheckResult, Status
+from core.settings import RELEASE_REFUSED_STATUS
 from core.paths import TEMPLATES_DIR
 from core.formatting import render_template
 
@@ -21,6 +22,27 @@ class CheckReport:
         self.project, self.config = project, config
         self.checks, self.items = checks, assumptions
 
+    @staticmethod
+    def write_rejection(folder, problems):
+        """Записывает отказ с теми же кодами, точками и сообщениями, что получает агент."""
+        rows = []
+        for problem in problems:
+            if problem["level"] != Status.ERROR:
+                continue
+            values = (problem["code"], problem.get("where") or "—", problem["message"])
+            cells = [str(value).replace("|", "\\|").replace("\n", " ") for value in values]
+            rows.append("| " + " | ".join(cells) + " |")
+        path = folder / "check_report.md"
+        CheckReport.write_template(path, "rejected_report.md", {
+            "status": RELEASE_REFUSED_STATUS, "errors": "\n".join(rows),
+        })
+        return str(path)
+
+    def problems(self):
+        """Возвращает ошибки и предупреждения проверок для ответа инструмента и отказа."""
+        return [{"code": check.name, "level": check.status, "where": "", "message": check.message}
+                for check in self.checks if check.status != Status.OK]
+
     def missing_data(self):
         """Возвращает недостающие сведения с учётом наличия стандарта на трубу."""
         missing = list(self.config["missing_data"]["common"])
@@ -29,7 +51,8 @@ class CheckReport:
         missing.append(self.config["missing_data"]["bend_standard"])
         return missing
 
-    def write_template(self, path, name, values):
+    @staticmethod
+    def write_template(path, name, values):
         """Записывает markdown-файл с подстановкой значений в шаблон."""
         text = render_template(TEMPLATES_DIR / name, values)
         path.write_text(text, encoding="utf-8")

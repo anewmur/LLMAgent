@@ -7,6 +7,7 @@ from core.paths import TEMPLATES_DIR
 from core.profile_grid import ProfileGrid
 from core.profile_style import ProfileStyle
 from core.sheet import Sheet
+from core.drawing_scale import choose_scale
 from core.pipe_drawing import pipe_line_count, pipe_leader, pipe_shelf_width
 from core.formatting import render_template
 from core.profile_labels import ProfileLabel
@@ -54,10 +55,8 @@ class ProfileDrawing:
         """Выбирает крупнейший масштаб из ряда, при котором вся длина помещается в поле."""
         available = (self.sheet.width - settings.PROFILE_FIELD_HORIZONTAL_MARGINS_MM
                      - settings.PROFILE_POINT_ORIGIN_MM - settings.PROFILE_GRID_RIGHT_PADDING_MM)
-        for scale in settings.PROFILE_HORIZONTAL_SCALES:
-            if self.stations[-1] * 1000 / scale <= available:
-                return scale
-        raise ValueError("Профиль не помещается на A3 ни при одном разрешённом горизонтальном масштабе.")
+        return choose_scale((self.stations[-1],), (available,), settings.PROFILE_HORIZONTAL_SCALES,
+                            settings.PROFILE_FIT_ERROR)
 
     def place_profile(self):
         """Прижимает низ трубы к таблице и возвращает начало пикетажа и условный горизонт."""

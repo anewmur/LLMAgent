@@ -68,3 +68,17 @@ def leader_crosses_shelf_text(label):
             if segment_crosses_rectangle(start, end, bounds):
                 return True
     return False
+
+
+def pipe_line_description(config, pipe, plan_scale, vertical_scale):
+    """Формирует текст по тем же числу контуров и штриху, что используют рисунки."""
+    notes = config["drawing_line_notes"]
+    plan_lines = pipe_line_count(pipe.outer_diameter_mm, plan_scale)
+    profile_lines = pipe_line_count(pipe.outer_diameter_mm, vertical_scale)
+    if plan_lines == 2:
+        plan = notes["double"]
+    else:
+        plan = notes["dashed"] if settings.PLAN_ROUTE_DASHARRAY_MM.strip() else notes["solid"]
+    profile = notes["double"] if profile_lines == 2 else notes["solid"]
+    axis = config["axis_notes"][bool(settings.DRAW_PIPE_AXIS and plan_lines == 2)]
+    return notes["template"].format(plan=plan, profile=profile, axis=axis).strip()

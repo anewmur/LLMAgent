@@ -1,6 +1,7 @@
 from xml.etree import ElementTree as ET
 import re
 
+from core.plan import PlanDrawing
 from core.assumptions import load_assumptions
 from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
@@ -41,7 +42,10 @@ def assert_inside_columns(boxes, boundaries):
 
 def test_general_text_stays_inside_columns_and_frame(route_data, config):
     project = Project.model_validate(route_data)
-    root = ET.fromstring(GeneralData(project, DocumentSet(project, config), config, load_assumptions(config, project, 100)).render())
+    root = ET.fromstring(GeneralData(project, DocumentSet(project, config), config, load_assumptions(
+        config, project, 100,
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).scale,
+    )).render())
     frame = root.find("s:g/s:rect[@id='frame']", NS)
     frame_left = float(frame.get("x"))
     frame_right = frame_left + float(frame.get("width"))
@@ -70,7 +74,7 @@ def test_general_text_stays_inside_columns_and_frame(route_data, config):
         assert right <= notes_right, element.text
     fifth_note = " ".join(" ".join(notes.findall("s:text", NS)[4].itertext()).split())
     assert fifth_note == ("В исходных данных заданы отметки оси трубопровода; на профиле показаны отметки низа трубы "
-                          "(ось минус половина наружного диаметра). Труба ⌀110 на профиле — одной линией. Линии трубы — сплошные толстые.")
+                          "(ось минус половина наружного диаметра). На плане труба показана одной штриховой толстой линией; на профиле — одной сплошной толстой линией.")
 
 
 def test_specification_header_text_stays_inside_columns(route_data, config):

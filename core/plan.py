@@ -3,12 +3,14 @@ from xml.sax.saxutils import escape, quoteattr, unescape
 
 from core import drawing_settings as settings
 from core.calculations import calculate_route_geometry
-from core.formatting import format_number, format_station
+from core.formatting import format_number, format_station, format_point_title
 from core.paths import TEMPLATES_DIR
 from core.sheet import Sheet
+from core.drawing_scale import choose_plan_scale
 from core.pipe_drawing import pipe_line_count, pipe_leader
 from core.pipe_geometry import PipeContours
 from core.tables import text_width
+from core.label_geometry import plan_label_width, text_bounds, labels_too_close, segment_crosses_rectangle
 from core.formatting import render_template
 
 
@@ -21,15 +23,14 @@ POINT_LEADER_PATH = TEMPLATES_DIR / "plan_point_leader.svg"
 class PlanDrawing:
     """План трассы на листе A3 (SVG).
 
-    Метры местности переводятся в мм листа по масштабу (по умолчанию 1:1000),
+    Метры местности переводятся в мм листа по автоматически выбранному масштабу,
     трасса центрируется над штампом. Рисует трубу с кружками вершин, блоки имён,
     пикетов и координат, длины, подпись трубы и легенду. render() возвращает SVG.
     """
 
-    def __init__(self, project, document, scale=settings.PLAN_SCALE):
+    def __init__(self, project, document, scale=None):
         """Готовит лист, координаты и участки трассы в заданном масштабе."""
-        if scale <= 0:
-            raise ValueError("Масштаб должен быть положительным.")
+        scale = choose_plan_scale(project, scale)
         self.project = project
         self.scale = scale
         self.mm_per_meter = 1000 / self.scale
@@ -63,12 +64,6 @@ class PlanDrawing:
         width = (max_x - min_x) * self.mm_per_meter
         height = (max_y - min_y) * self.mm_per_meter
 
-        if width > self.field_width or height > settings.PLAN_FIELD_HEIGHT_MM:
-            raise ValueError(
-                f"Трасса не помещается на A3 при масштабе 1:{self.scale}. "
-                "Требуется другой формат или масштаб."
-            )
-
         left = settings.PLAN_FIELD_LEFT_MM + (self.field_width - width) / 2
         top = settings.PLAN_FIELD_TOP_MM + (settings.PLAN_FIELD_HEIGHT_MM - height) / 2
         coordinates = []
@@ -101,15 +96,7 @@ class PlanDrawing:
 
     def point_title(self, point_id):
         """Возвращает экранированное имя точки с номером УП и непрямым углом."""
-        title = point_id
-        if point_id in self.bends:
-            title += f" / {self.bend_names[point_id]}"
-            # ГОСТ 21.704, п. 5.1.2: числовое значение 90° не указывают.
-            angle_minutes = round(self.bends[point_id].angle_deg * 60)
-            if angle_minutes != 90 * 60:
-                degrees_part, minutes_part = divmod(angle_minutes, 60)
-                title += f" ({degrees_part}°{minutes_part:02d}′)"
-        return escape(title)
+        return escape(format_point_title(point_id, self.bends.get(point_id), self.bend_names.get(point_id)))
 
     def field_center_x(self):
         """Возвращает абсциссу центра свободного поля в мм листа."""
@@ -128,9 +115,15 @@ class PlanDrawing:
 
     def draw_point_labels(self):
         """Возвращает блоки имени, пикета и координат на одной стороне каждой точки."""
-        return "\n".join(self.draw_point_label(index) for index in range(len(self.project.points)))
+        obstacles = []
+        for index, section in enumerate(self.sections):
+            text = format_number(section["length_m"])
+            center_x, center_y = self.length_label_center(index, text)
+            obstacles.append(text_bounds(text, center_x, center_y + settings.PLAN_FONT_SIZE_MM / 2,
+                                         settings.PLAN_FONT_SIZE_MM, "middle"))
+        return "\n".join(self.draw_point_label(index, obstacles) for index in range(len(self.project.points)))
 
-    def draw_point_label(self, index):
+    def draw_point_label(self, index, obstacles):
         """Возвращает один блок подписей из шаблона с необязательной выноской."""
         point = self.project.points[index]
         station = 0.0 if index == 0 else self.sections[index - 1]["cumsum_dist_m"]
@@ -140,26 +133,26 @@ class PlanDrawing:
             "coordinates": f"X={format_number(point.x)}, Y={format_number(point.y)}",
             "coordinate_size": settings.PLAN_COORDINATE_FONT_SIZE_MM,
         }
-        values.update(self.point_label_layout(index, values))
+        values.update(self.point_label_layout(index, values, obstacles))
         return render_template(POINT_LABEL_PATH, values)
 
     @staticmethod
     def label_width(values):
         """Возвращает приближённую ширину блока подписей в мм листа."""
-        return max(text_width(unescape(values["title"]), settings.PLAN_FONT_SIZE_MM),
-                   text_width(values["station"], settings.PLAN_FONT_SIZE_MM),
-                   text_width(values["coordinates"], settings.PLAN_COORDINATE_FONT_SIZE_MM))
+        return plan_label_width(unescape(values["title"]), values["station"], values["coordinates"])
 
-    def point_label_layout(self, index, values):
-        """Возвращает общее положение строк, сдвигая блок внутрь поля чертежа."""
+    def point_label_layout(self, index, values, obstacles):
+        """Выбирает свободное положение блока внутри поля и добавляет его к препятствиям."""
         width = self.label_width(values)
         initial_x, anchor = self.point_label_position(index)
         left = initial_x - width if anchor == "end" else initial_x
         left = max(settings.PLAN_FIELD_LEFT_MM, min(left, self.field_right - width))
         label_x = left + width if anchor == "end" else left
         point_y = self.marker_coordinates[index][1]
-        label_y = max(point_y, settings.PLAN_FIELD_TOP_MM + settings.PLAN_POINT_NAME_OFFSET_MM
-                      + settings.PLAN_FONT_SIZE_MM)
+        baselines = list(self.label_baselines(point_y))
+        label_y = next((baseline for baseline in baselines
+                        if self.label_fits(self.label_bounds(left, baseline, width), obstacles)), baselines[0])
+        obstacles.append(self.label_bounds(left, label_y, width))
         leader = ""
         if (label_x, label_y) != (initial_x, point_y):
             leader = self.point_label_leader(index, left, label_y, width)
@@ -168,13 +161,43 @@ class PlanDrawing:
                 "station_y": label_y - settings.PLAN_STATION_OFFSET_MM,
                 "coordinates_y": label_y - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM}
 
+    @staticmethod
+    def label_bounds(left, baseline, width):
+        """Возвращает общий прямоугольник трёх строк подписей точки в мм листа."""
+        return (left, baseline - settings.PLAN_POINT_NAME_OFFSET_MM - settings.PLAN_FONT_SIZE_MM,
+                left + width, baseline - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM)
+
+    def label_baselines(self, point_y):
+        """Перебирает исходное положение, затем сдвиги вверх и вниз с шагом высоты блока."""
+        top = settings.PLAN_FIELD_TOP_MM
+        baseline = max(point_y, top + settings.PLAN_POINT_NAME_OFFSET_MM + settings.PLAN_FONT_SIZE_MM)
+        yield baseline
+        block_height = (settings.PLAN_POINT_NAME_OFFSET_MM + settings.PLAN_FONT_SIZE_MM
+                        - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM)
+        step = block_height + settings.LABEL_MIN_GAP_MM
+        for index in range(1, int(settings.PLAN_FIELD_HEIGHT_MM / step) + 1):
+            yield baseline - index * step
+            yield baseline + index * step
+
+    def label_fits(self, bounds, obstacles):
+        """Проверяет поле, расстояния до подписей и пересечение блока с трубой."""
+        field_bottom = settings.PLAN_FIELD_TOP_MM + settings.PLAN_FIELD_HEIGHT_MM
+        if bounds[1] < settings.PLAN_FIELD_TOP_MM or bounds[3] > field_bottom:
+            return False
+        if any(labels_too_close(bounds, other) for other in obstacles):
+            return False
+        clearance = self.pipe_geometry.diameter / 2 if self.line_count == 2 else 0
+        pipe_bounds = (bounds[0] - clearance, bounds[1] - clearance,
+                       bounds[2] + clearance, bounds[3] + clearance)
+        return not any(segment_crosses_rectangle(start, end, pipe_bounds)
+                       for start, end in zip(self.coordinates, self.coordinates[1:]))
+
     def point_label_leader(self, index, left, label_y, width):
         """Возвращает короткую линию от края кружка к ближайшему краю сдвинутого блока."""
         point_x, point_y = self.marker_coordinates[index]
-        top = label_y - settings.PLAN_POINT_NAME_OFFSET_MM - settings.PLAN_FONT_SIZE_MM
-        bottom = label_y - settings.PLAN_COORDINATES_ABOVE_OFFSET_MM
+        bounds = self.label_bounds(left, label_y, width)
         end_x = max(left, min(point_x, left + width))
-        end_y = max(top, min(point_y, bottom))
+        end_y = max(bounds[1], min(point_y, bounds[3]))
         distance = hypot(end_x - point_x, end_y - point_y)
         radius = settings.POINT_MARKER_DIAMETER_MM / 2
         if distance <= radius:

@@ -23,7 +23,7 @@ def test_missing_axis_p3(route_data):
     changed = copy.deepcopy(route_data)
     del find_point(changed, "P3")["axis"]
     project, problems = validate_input(changed)
-    assert any(problem.where == "P3" and "axis" in problem.message for problem in problems)
+    assert any(problem.where == "P3" and problem.code == "missing_axis" for problem in problems)
 
 
 def test_material_conflict(route_data):

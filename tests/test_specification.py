@@ -82,7 +82,7 @@ def test_conflicting_materials_prevent_specification_export(route_data, tmp_path
 
     assert result["status"] == "error"
     assert any(problem["where"] == "pipe" for problem in result["problems"])
-    assert not output.exists()
+    assert {path.name for path in output.iterdir()} == {"check_report.md"}
 
 
 def test_specification_uses_shared_sheet_and_column_widths(route_data, tmp_path, monkeypatch, config):

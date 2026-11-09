@@ -48,3 +48,15 @@ def format_slope(value):
     integer = slope.quantize(Decimal(1), rounding=ROUND_HALF_UP)
     places = 0 if abs(slope - integer) <= Decimal(str(settings.SLOPE_INTEGER_TOLERANCE)) else 1
     return format_number(slope, places)
+
+
+def format_point_title(point_id, bend=None, bend_name=None):
+    """Возвращает имя точки, номер поворота и непрямой угол без XML-разметки."""
+    title = point_id
+    if bend is not None:
+        title += f" / {bend_name}"
+        angle_minutes = round(bend.angle_deg * 60)
+        if angle_minutes != 90 * 60:
+            degrees_part, minutes_part = divmod(angle_minutes, 60)
+            title += f" ({degrees_part}°{minutes_part:02d}′)"
+    return title

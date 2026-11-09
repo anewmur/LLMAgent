@@ -4,6 +4,7 @@ from xml.etree import ElementTree as ET
 from pypdf import PdfReader
 import pytest
 
+from core.models import DocumentId
 from core import calculations, release as release_module
 from core.assumptions import load_assumptions
 from core.checks import base as checks_module
@@ -40,12 +41,15 @@ def test_release_uses_project_and_detects_tampering(route_data, tmp_path, config
         assert result["status"] == "ok", result
         assert all(check.status == Status.OK for check in result["checks"])
         expected = {"general.svg", "plan.svg", "profile.svg", "specification.svg", "specification.csv", "check_report.md"}
-        expected.update("pdf/" + name + ".pdf" for name in ["general", "plan", "profile", "specification", "package"])
+        expected.add("pdf/package.pdf")
         assert {path.relative_to(folder).as_posix() for path in folder.rglob("*") if path.is_file()} == expected
         assert {path.relative_to(folder).as_posix() for path in folder.rglob("*") if path.is_dir()} == {"pdf"}
         report = (folder / "check_report.md").read_text(encoding="utf-8")
         assert "## Допущения" in report and "## Ограничения" in report
-        items = load_assumptions(config, project, 100)
+        items = load_assumptions(
+            config, project, 100,
+            PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).scale,
+        )
         assert all(item.full in report for item in items)
         assert "Отводы включены в спецификацию вопреки ГОСТ 21.704 п. 7.4" in report
         assert ("Вершины трассы без колодцев показаны кружком; отдельного обозначения "
@@ -98,7 +102,7 @@ def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_dat
     plan = ET.parse(folder / "plan.svg").getroot()
     stamp_title = plan.find(".//s:text[@x='100'][@y='35.5']", NS)
     assert "".join(stamp_title.itertext()) == "План сетей водоснабжения (1:2000)"
-    assert "(1:2000)" in PdfReader(folder / "pdf/plan.pdf").pages[0].extract_text()
+    assert "(1:2000)" in PdfReader(folder / "pdf/package.pdf").pages[1].extract_text()
     profile = ET.parse(folder / "profile.svg").getroot()
     geometry = profile.find("s:g[@id='profile-geometry']", NS)
     assert geometry.get("data-horizontal-scale") == "4000"
@@ -107,7 +111,10 @@ def test_release_preserves_drawing_scales_in_stamp_geometry_and_report(route_dat
     assert profile.find(".//s:text[@data-kind='horizontal-scale']", NS).text == "по горизонтали 1:4000"
     assert profile.find(".//s:text[@data-kind='vertical-scale']", NS).text == "по вертикали 1:200"
     assert "Труба ⌀250 при 1:200 = 1,25 мм < 2 мм" in (folder / "check_report.md").read_text(encoding="utf-8")
-    items = load_assumptions(config, project, 200)
+    items = load_assumptions(
+        config, project, 200,
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).scale,
+    )
     note = next(item for item in items if item.id == "pipe_note")
     assert note.short == "Труба ⌀250 на профиле — одной линией"
     assert note.short not in result["assumptions"]
@@ -128,4 +135,4 @@ def test_invalid_project_does_not_replace_documents(route_data, tmp_path, case, 
     input_file = write_route(route_data, "invalid.json")
     result = RouteSession(input_file, folder, config).release()
     assert result["status"] == "error" and result["problems"]
-    assert {path.relative_to(folder): path.read_bytes() for path in folder.rglob("*") if path.is_file()} == before
+    assert {path.name for path in folder.iterdir()} == {"check_report.md"}

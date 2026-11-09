@@ -3,23 +3,31 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import shutil
 
-from pypdf import PdfReader, PdfWriter
+from reportlab.pdfgen.canvas import Canvas
+from reportlab.graphics import renderPDF
 
 from core.check_report import CheckReport
-from core.assumptions import load_assumptions
+from core.assumptions import load_assumptions, assumption_summary
 from core.documents import DocumentSet
 from core.drawing_settings import DEFAULT_FONT_SIZE_MM
 from core.formatting import format_change_value
 from core.general import GeneralData
-from core.models import DocumentId, Project, Status
+from core.models import DocumentId, Project, Status, ProblemCode
 from core.package_checks import PackageChecks
 from core.paths import TEMPLATES_DIR
 from core.plan import PlanDrawing
 from core.profile import ProfileDrawing
-from core.sheet import svg_to_pdf
+from core.sheet import svg_drawing
 from core.settings import CHANGES_FILENAME
 from core.specification import SpecificationDrawing
 from core.formatting import render_template
+
+
+def clear_output(output_dir):
+    """Удаляет результаты предыдущего выпуска перед новой попыткой."""
+    folder = Path(output_dir)
+    shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True, exist_ok=True)
 
 
 class PackageRelease:
@@ -37,30 +45,27 @@ class PackageRelease:
         (folder / f"{document_id}.svg").write_text(drawing.render(), encoding="utf-8")
 
     def build_svg(self, folder):
+        plan = PlanDrawing(self.project, self.documents.get(DocumentId.PLAN))
         profile = ProfileDrawing(self.project, self.documents.get(DocumentId.PROFILE), self.config, self.font_size)
-        self.assumptions = load_assumptions(self.config, self.project, profile.vertical_scale)
+        self.assumptions = load_assumptions(self.config, self.project, profile.vertical_scale, plan.scale)
         general = GeneralData(self.project, self.documents, self.config, self.assumptions)
         (folder / f"{DocumentId.GENERAL}.svg").write_text(general.render(), encoding="utf-8")
-        plan = PlanDrawing(self.project, self.documents.get(DocumentId.PLAN))
         self.save_drawing(folder, plan, DocumentId.PLAN)
         self.save_drawing(folder, profile, DocumentId.PROFILE)
         specification = SpecificationDrawing(self.project, self.documents.get(DocumentId.SPECIFICATION))
         self.save_drawing(folder, specification, DocumentId.SPECIFICATION)
         specification.write_csv(folder / f"{DocumentId.SPECIFICATION}.csv")
 
-    def merge_pdf(self, folder, name, stems):
-        writer = PdfWriter()
-        for stem in stems:
-            writer.append(PdfReader(folder / "pdf" / f"{stem}.pdf"))
-        with (folder / "pdf" / name).open("wb") as stream:
-            writer.write(stream)
-
     def build_pdf(self, folder):
+        """Записывает все листы непосредственно в один PDF, без отдельных файлов страниц."""
         (folder / "pdf").mkdir()
-        stems = [doc["id"] for doc in self.documents.items]
-        for stem in stems:
-            svg_to_pdf(folder / f"{stem}.svg", folder / "pdf" / f"{stem}.pdf")
-        self.merge_pdf(folder, "package.pdf", stems)
+        canvas = Canvas(str(folder / "pdf/package.pdf"))
+        for document in self.documents.items:
+            drawing = svg_drawing(folder / f'{document["id"]}.svg')
+            canvas.setPageSize((drawing.width, drawing.height))
+            renderPDF.draw(drawing, canvas, 0, 0)
+            canvas.showPage()
+        canvas.save()
 
     def write_changes(self, folder):
         if not self.changes:
@@ -87,6 +92,7 @@ class PackageRelease:
 
     def create(self):
         try:
+            clear_output(self.output_dir)
             with TemporaryDirectory(prefix="llmagent-release-") as temp:
                 folder = Path(temp)
                 self.build_svg(folder)
@@ -95,15 +101,21 @@ class PackageRelease:
                 report = CheckReport(self.project, self.config, checks, self.assumptions)
                 status = report.write(folder)
                 if status == Status.ERROR:
-                    return {"status": status, "message": CheckReport.failure_message(checks), "checks": checks}
+                    problems = report.problems()
+                    report_path = CheckReport.write_rejection(self.output_dir, problems)
+                    return {"status": status, "released": False, "message": CheckReport.failure_message(checks),
+                            "checks": checks, "problems": problems, "report": report_path}
                 self.write_changes(folder)
                 self.publish(folder)
-            return {"status": status, "folder": str(self.output_dir), "checks": checks,
-                    "assumptions": [item.short for item in self.assumptions if item.key],
+            return {"status": status, "released": True, "folder": str(self.output_dir), "checks": checks, "problems": report.problems(),
+                    **assumption_summary(self.assumptions),
                     "pdf": str(self.output_dir / "pdf" / "package.pdf"),
                     "report": str(self.output_dir / "check_report.md")}
         except (OSError, ValueError, TypeError, KeyError) as error:
-            return {"status": Status.ERROR, "message": str(error)}
+            problems = [{"code": ProblemCode.RELEASE_FAILED, "level": Status.ERROR, "where": "", "message": str(error)}]
+            report_path = CheckReport.write_rejection(self.output_dir, problems)
+            return {"status": Status.ERROR, "released": False, "message": str(error),
+                    "problems": problems, "report": report_path}
 
 
 def create_package(project: Project, output_dir, config, changes=None, font_size=DEFAULT_FONT_SIZE_MM):

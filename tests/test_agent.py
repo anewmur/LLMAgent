@@ -8,6 +8,13 @@ from openai.types.chat import ChatCompletionMessage
 from agent.runtime import RouteAgent
 from agent.settings import BASE_URL, MAX_TOOL_ROUNDS, MODEL
 from agent.tools import ToolName
+from core.models import DocumentId
+from core.documents import DocumentSet
+from core.plan import PlanDrawing
+from core.assumptions import load_assumptions
+from core.drawing_settings import PROFILE_VERTICAL_SCALE
+from core.models import Level, ProblemCode, Status
+from core.settings import MISSING_AXIS_MESSAGE
 from core.session import RouteSession
 from main import SYSTEM_PROMPT_PATH
 
@@ -18,6 +25,36 @@ def response(content=None, tool_name=None, arguments="{}", call_id="call_1"):
         calls = [{"id": call_id, "type": "function", "function": {"name": tool_name, "arguments": arguments}}]
     message = ChatCompletionMessage(role="assistant", content=content, tool_calls=calls)
     return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+@pytest.mark.parametrize("tool_name, arguments", [
+    (ToolName.RELEASE_DOCUMENTS, "{}"),
+    (ToolName.LOAD_ROUTE, '{"path":"input/examples/alternate.json"}'),
+])
+def test_release_tools_send_only_key_assumptions(input_file, tmp_path, config, tool_name, arguments):
+    session = RouteSession(input_file, tmp_path / "output", config)
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        response(tool_name=tool_name, arguments=arguments),
+        response(content="Документы выпущены. Полный список допущений — в output/check_report.md."),
+    ]
+    handlers = {ToolName.RELEASE_DOCUMENTS: session.release, ToolName.LOAD_ROUTE: session.load_route}
+    agent = RouteAgent(client, handlers, SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log)
+    agent.ask("Выпусти комплект документов")
+
+    tool_message = next(message for message in agent.messages if message["role"] == "tool")
+    result = json.loads(tool_message["content"])
+    assert result["released"] is True
+    items = load_assumptions(
+        config, session.project, PROFILE_VERTICAL_SCALE,
+        PlanDrawing(session.project, DocumentSet(session.project, config).get(DocumentId.PLAN)).scale,
+    )
+    assert result["assumptions_count"] == len(items)
+    assert result["assumptions"] == [item.short for item in items if item.key]
+    assert len(result["assumptions"]) < result["assumptions_count"]
+    report = (session.output_dir / "check_report.md").read_text(encoding="utf-8")
+    section = report.split("## Допущения\n\n", 1)[1].split("\n\n## Ограничения", 1)[0]
+    assert section.strip().splitlines() == ["- " + item.full for item in items]
 
 
 def test_questions_preserve_history_and_log_tools():
@@ -39,6 +76,26 @@ def test_questions_preserve_history_and_log_tools():
     assert [message["tool_call_id"] for message in messages if message["role"] == "tool"] == ["call_1", "call_2"]
     assert log[0]["result"]["length_m"] == 360
     assert agent.turn == 2 and [entry["turn"] for entry in log] == [1, 2]
+
+
+@pytest.mark.parametrize("model_text, preserved", [
+    ("Комплект не выпущен: P3 и P4 без отметок. Задайте значения.", True),
+    ("Комплект выпущен. P3 и P4 без отметок.", False),
+    ("Комплект не выпущен: у P3 нет отметки.", False),
+])
+def test_missing_axis_keeps_complete_refusal_and_repairs_incomplete_answer(model_text, preserved):
+    client = Mock()
+    client.chat.completions.create.side_effect = [response(tool_name=ToolName.RELEASE_DOCUMENTS),
+                                                 response(content=model_text)]
+    result = {"status": Status.ERROR, "released": False, "problems": [
+        {"code": ProblemCode.MISSING_AXIS, "level": Level.ERROR, "where": point_name, "message": MISSING_AXIS_MESSAGE}
+        for point_name in ("P3", "P4")
+    ]}
+    agent = RouteAgent(client, {ToolName.RELEASE_DOCUMENTS: lambda: result}, "Помощник")
+    answer = agent.ask("Выпусти комплект")
+    assert (answer == model_text) is preserved
+    assert "не выпущен" in answer and all(point_name in answer for point_name in ("P3", "P4"))
+    assert agent.messages[-1]["content"] == answer
 
 
 @pytest.mark.parametrize("name, arguments", [("unknown", "{}"), ("calculate_route_length", "broken json"),
@@ -64,7 +121,7 @@ def test_repeated_tool_calls_are_bounded(max_rounds):
 
 
 @pytest.mark.parametrize("input_name, exit_signal", [
-    (None, None), ("input/examples/route_2.json", None), (None, EOFError), (None, KeyboardInterrupt),
+    (None, None), ("input/examples/alternate.json", None), (None, EOFError), (None, KeyboardInterrupt),
 ])
 def test_terminal_accepts_multiple_questions(monkeypatch, config, input_name, exit_signal):
     import main
@@ -99,7 +156,7 @@ def test_terminal_accepts_multiple_questions(monkeypatch, config, input_name, ex
     config_loader.assert_called_once_with()
     expected_input = main.INPUT_PATH if input_name is None else main.Path(input_name)
     session_factory.assert_called_once_with(expected_input, main.OUTPUT_DIR, config)
-    session.save_tool_log.assert_called_once_with()
+    assert session.save_tool_log.call_count == 4
 
 
 def test_tools_update_current_session(input_file, tmp_path, config):
@@ -141,8 +198,15 @@ def test_validation_error_is_given_to_model_for_clarification(input_file, tmp_pa
     text = agent.ask("Удали отметку P3")
     result = json.loads(next(message["content"] for message in agent.messages if message["role"] == "tool"))
     assert result["status"] == "error" and result["problems"][0]["where"] == ("P3" if case == "missing_axis" else "pipe")
-    assert text.endswith("?") and session.project.model_dump() == before
-    assert not session.changes and not (tmp_path / "output").exists()
+    assert ("Задайте" in text) if case == "missing_axis" else text.endswith("?")
+    if case == "missing_axis":
+        assert session.project.points[3].axis is None and len(session.changes) == 1
+    else:
+        assert session.project.model_dump() == before and not session.changes
+    if case == "missing_axis":
+        assert {path.name for path in session.output_dir.iterdir()} == {"check_report.md"}
+    else:
+        assert not session.output_dir.exists()
 
 
 def test_levels_tool_is_called_without_arguments():
@@ -171,12 +235,12 @@ def test_missing_axis_is_clarified_before_documents_are_released(route_data, wri
     handlers = {ToolName.RELEASE_DOCUMENTS: session.release, ToolName.UPDATE_POINT: session.update_point}
     agent = RouteAgent(client, handlers, SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"), tool_log=session.tool_log)
 
-    assert "нет отметки" in agent.ask("Выпусти комплект документов")
+    assert "не задана отметка" in agent.ask("Выпусти комплект документов")
     first = session.tool_log[0]["result"]
     assert first["status"] == "error"
-    assert any(problem["where"] == "P3" and "axis" in problem["message"] for problem in first["problems"])
+    assert any(problem["where"] == "P3" and problem["code"] == "missing_axis" for problem in first["problems"])
     assert session.project.model_dump() == before and not session.changes
-    assert not folder.exists()
+    assert {path.name for path in folder.iterdir()} == {"check_report.md"}
 
     assert "Комплект выпущен" in agent.ask("У P3 отметка оси 100,6 м")
     updated = session.tool_log[1]["result"]
@@ -364,7 +428,7 @@ def test_release_claim_requires_success_in_current_turn(status, warning, capsys)
     client.chat.completions.create.return_value = response(content="Документы выпущены.")
     agent = RouteAgent(client, {}, "Помощник")
     if status:
-        agent.tool_log.append({"turn": 1, "tool": ToolName.RELEASE_DOCUMENTS, "result": {"status": status}})
+        agent.tool_log.append({"turn": 1, "tool": ToolName.RELEASE_DOCUMENTS, "result": {"status": status, "released": status in ("ok", "warning")}})
     agent.ask("Выпусти документы")
     assert ("WARNING" in capsys.readouterr().out) == warning
     agent.ask("Выпусти ещё раз")

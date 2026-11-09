@@ -32,13 +32,19 @@ def test_double_plan_contour_clearance_extensions_legend_and_assumptions(route_d
            + settings.PLAN_FONT_SIZE_MM / 2 + 1.1)
     root = ET.fromstring(drawing.render())
     assert root.find(".//s:g[@data-kind='legend-axis']", NS).get("display") == "inline"
-    items = load_assumptions(config, project, 100)
+    items = load_assumptions(
+        config, project, 100,
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).scale,
+    )
     assert "bend_radius" in [item.id for item in items] and "symbolic_bends" not in [item.id for item in items]
     assert any("ось — тонкая штрихпунктирная" in item.full.lower() for item in items)
     monkeypatch.setattr(settings, "DRAW_PIPE_AXIS", False)
     assert ET.fromstring(drawing.render()).find(".//s:g[@data-kind='legend-axis']", NS).get("display") == "none"
     project.pipe.outer_diameter_mm = 110
-    assert "bend_radius" not in [item.id for item in load_assumptions(config, project, 100)]
+    assert "bend_radius" not in [item.id for item in load_assumptions(
+        config, project, 100,
+        PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).scale,
+    )]
 
 
 def test_specification_header_padding_and_bend_size(route_data, config):
