@@ -100,7 +100,7 @@
 <path d="M 20,62 H 415" stroke="black" stroke-width="0.3"/>
 <g id="spec-row-1">
 <text x="30" y="71.65" text-anchor="middle">1</text>
-<text x="42" y="71.65" text-anchor="start">Отвод 90° ПЭ 100 SDR 11 ⌀110×10</text>
+<text x="42" y="71.65" text-anchor="start">Отвод 90° ПЭ 100 SDR 17 ⌀110×6,6</text>
 
 
 
@@ -114,12 +114,12 @@
 <path d="M 20,78.9 H 415" stroke="black" stroke-width="0.3"/>
 <g id="spec-row-2">
 <text x="30" y="88.55" text-anchor="middle">2</text>
-<text x="42" y="88.55" text-anchor="start">Труба ПЭ 100 SDR 11 ⌀110×10</text>
+<text x="42" y="88.55" text-anchor="start">Труба ПЭ 100 SDR 17 ⌀110×6,6</text>
 
 
 
 <text x="320" y="88.55" text-anchor="middle">м</text>
-<text x="340" y="88.55" text-anchor="middle">360,00</text>
+<text x="340" y="88.55" text-anchor="middle">380,00</text>
 
 <text x="377" y="84.55" text-anchor="start">Без запаса и</text>
 <text x="377" y="88.55" text-anchor="start">вычета монтажных</text>

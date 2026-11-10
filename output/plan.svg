@@ -71,30 +71,30 @@
   <text id="paper-format" x="414" y="295.5" text-anchor="end"
         font-family="DejaVu Sans" font-size="2.5">Формат A3</text>
 <g id="route-geometry" data-scale="1000" data-line-count="1">
-<polyline id="route-line" points="77.5,171.0 137.5,171.0 197.5,171.0 197.5,91.0 277.5,91.0 357.5,91.0" display="inline" visibility="visible" fill="none" stroke="black" stroke-width="0.7" stroke-dasharray="6 2" stroke-linejoin="miter"/>
+<polyline id="route-line" points="67.5,171.0 127.5,171.0 187.5,171.0 187.5,91.0 267.5,91.0 367.5,91.0" display="inline" visibility="visible" fill="none" stroke="black" stroke-width="0.7" stroke-dasharray="6 2" stroke-linejoin="miter"/>
 
 <circle data-kind="point-marker" data-point-id="P0"
-        cx="77.5" cy="171.0" r="0.75"
+        cx="67.5" cy="171.0" r="0.75"
         fill="white" stroke="black" stroke-width="0.3"/>
 
 <circle data-kind="point-marker" data-point-id="P1"
-        cx="137.5" cy="171.0" r="0.75"
+        cx="127.5" cy="171.0" r="0.75"
         fill="white" stroke="black" stroke-width="0.3"/>
 
 <circle data-kind="point-marker" data-point-id="P2"
-        cx="197.5" cy="171.0" r="0.75"
+        cx="187.5" cy="171.0" r="0.75"
         fill="white" stroke="black" stroke-width="0.3"/>
 
 <circle data-kind="point-marker" data-point-id="P3"
-        cx="197.5" cy="91.0" r="0.75"
+        cx="187.5" cy="91.0" r="0.75"
         fill="white" stroke="black" stroke-width="0.3"/>
 
 <circle data-kind="point-marker" data-point-id="P4"
-        cx="277.5" cy="91.0" r="0.75"
+        cx="267.5" cy="91.0" r="0.75"
         fill="white" stroke="black" stroke-width="0.3"/>
 
 <circle data-kind="point-marker" data-point-id="P5"
-        cx="357.5" cy="91.0" r="0.75"
+        cx="367.5" cy="91.0" r="0.75"
         fill="white" stroke="black" stroke-width="0.3"/>
 
 </g>
@@ -102,80 +102,80 @@
 <g data-kind="point-label" data-point-id="P0">
   
   <text data-kind="point-name" data-point-id="P0"
-        x="81.5" y="156.0" text-anchor="start">P0</text>
+        x="71.5" y="156.0" text-anchor="start">P0</text>
   <text data-kind="station" data-point-id="P0"
-        x="81.5" y="161.0" text-anchor="start">ПК 0+00,00</text>
+        x="71.5" y="161.0" text-anchor="start">ПК 0+00,00</text>
   <text data-kind="coordinates" data-point-id="P0"
-        x="81.5" y="166.0" text-anchor="start"
+        x="71.5" y="166.0" text-anchor="start"
         font-size="2.5">X=0,00, Y=0,00</text>
 </g>
 
 <g data-kind="point-label" data-point-id="P1">
   
   <text data-kind="point-name" data-point-id="P1"
-        x="141.5" y="156.0" text-anchor="start">P1</text>
+        x="131.5" y="156.0" text-anchor="start">P1</text>
   <text data-kind="station" data-point-id="P1"
-        x="141.5" y="161.0" text-anchor="start">ПК 0+60,00</text>
+        x="131.5" y="161.0" text-anchor="start">ПК 0+60,00</text>
   <text data-kind="coordinates" data-point-id="P1"
-        x="141.5" y="166.0" text-anchor="start"
+        x="131.5" y="166.0" text-anchor="start"
         font-size="2.5">X=60,00, Y=0,00</text>
 </g>
 
 <g data-kind="point-label" data-point-id="P2">
   
   <text data-kind="point-name" data-point-id="P2"
-        x="193.5" y="156.0" text-anchor="end">P2 / УП1</text>
+        x="183.5" y="156.0" text-anchor="end">P2 / УП1</text>
   <text data-kind="station" data-point-id="P2"
-        x="193.5" y="161.0" text-anchor="end">ПК 1+20,00</text>
+        x="183.5" y="161.0" text-anchor="end">ПК 1+20,00</text>
   <text data-kind="coordinates" data-point-id="P2"
-        x="193.5" y="166.0" text-anchor="end"
+        x="183.5" y="166.0" text-anchor="end"
         font-size="2.5">X=120,00, Y=0,00</text>
 </g>
 
 <g data-kind="point-label" data-point-id="P3">
   
   <text data-kind="point-name" data-point-id="P3"
-        x="201.5" y="76.0" text-anchor="start">P3 / УП2</text>
+        x="191.5" y="76.0" text-anchor="start">P3 / УП2</text>
   <text data-kind="station" data-point-id="P3"
-        x="201.5" y="81.0" text-anchor="start">ПК 2+00,00</text>
+        x="191.5" y="81.0" text-anchor="start">ПК 2+00,00</text>
   <text data-kind="coordinates" data-point-id="P3"
-        x="201.5" y="86.0" text-anchor="start"
+        x="191.5" y="86.0" text-anchor="start"
         font-size="2.5">X=120,00, Y=80,00</text>
 </g>
 
 <g data-kind="point-label" data-point-id="P4">
   
   <text data-kind="point-name" data-point-id="P4"
-        x="273.5" y="76.0" text-anchor="end">P4</text>
+        x="263.5" y="76.0" text-anchor="end">P4</text>
   <text data-kind="station" data-point-id="P4"
-        x="273.5" y="81.0" text-anchor="end">ПК 2+80,00</text>
+        x="263.5" y="81.0" text-anchor="end">ПК 2+80,00</text>
   <text data-kind="coordinates" data-point-id="P4"
-        x="273.5" y="86.0" text-anchor="end"
+        x="263.5" y="86.0" text-anchor="end"
         font-size="2.5">X=200,00, Y=80,00</text>
 </g>
 
 <g data-kind="point-label" data-point-id="P5">
   
   <text data-kind="point-name" data-point-id="P5"
-        x="353.5" y="76.0" text-anchor="end">P5</text>
+        x="363.5" y="76.0" text-anchor="end">P5</text>
   <text data-kind="station" data-point-id="P5"
-        x="353.5" y="81.0" text-anchor="end">ПК 3+60,00</text>
+        x="363.5" y="81.0" text-anchor="end">ПК 3+80,00</text>
   <text data-kind="coordinates" data-point-id="P5"
-        x="353.5" y="86.0" text-anchor="end"
-        font-size="2.5">X=280,00, Y=80,00</text>
+        x="363.5" y="86.0" text-anchor="end"
+        font-size="2.5">X=300,00, Y=80,00</text>
 </g>
 
-<text data-kind="length" data-start-id="P0" data-end-id="P1" x="107.5" y="177.5" text-anchor="middle">60,00</text>
-<text data-kind="length" data-start-id="P1" data-end-id="P2" x="167.5" y="177.5" text-anchor="middle">60,00</text>
-<text data-kind="length" data-start-id="P2" data-end-id="P3" x="205.75" y="132.75" text-anchor="middle">80,00</text>
-<text data-kind="length" data-start-id="P3" data-end-id="P4" x="237.5" y="97.5" text-anchor="middle">80,00</text>
-<text data-kind="length" data-start-id="P4" data-end-id="P5" x="317.5" y="97.5" text-anchor="middle">80,00</text>
-<g data-kind="pipe-label" data-bounds="207.5 103.75 242.5 113.75"
+<text data-kind="length" data-start-id="P0" data-end-id="P1" x="97.5" y="177.5" text-anchor="middle">60,00</text>
+<text data-kind="length" data-start-id="P1" data-end-id="P2" x="157.5" y="177.5" text-anchor="middle">60,00</text>
+<text data-kind="length" data-start-id="P2" data-end-id="P3" x="195.75" y="132.75" text-anchor="middle">80,00</text>
+<text data-kind="length" data-start-id="P3" data-end-id="P4" x="227.5" y="97.5" text-anchor="middle">80,00</text>
+<text data-kind="length" data-start-id="P4" data-end-id="P5" x="317.5" y="97.5" text-anchor="middle">100,00</text>
+<g data-kind="pipe-label" data-bounds="280.8 101.0 315.8 111.0"
    font-family="DejaVu Sans" font-size="3.5" fill="black" stroke="none">
-  <path data-kind="pipe-leader" d="M 197.5,123.75 L 207.5,108.75 H 242.5"
+  <path data-kind="pipe-leader" d="M 325.8,91.0 L 315.8,106.0 H 280.8"
         fill="none" stroke="black" stroke-width="0.3"/>
-  <text data-kind="pipe-network" x="225.0" y="107.25" text-anchor="middle">В1</text>
-  <text data-kind="pipe-size" x="225.0" y="113.75" text-anchor="middle">⌀110×10</text>
+  <text data-kind="pipe-network" x="298.3" y="104.5" text-anchor="middle">В1</text>
+  <text data-kind="pipe-size" x="298.3" y="111.0" text-anchor="middle">⌀110×6,6</text>
 </g>
 
 </g>
