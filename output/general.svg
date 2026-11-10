@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+    width="420mm" height="297mm" viewBox="0 0 420 297">
+  <rect width="420" height="297" fill="white"/>
+  <!-- Рамка и контур штампа: толщина линий 0.7 мм по эталону. -->
+  <g fill="none" stroke="black" stroke-width="0.7">
+    <rect id="frame" x="20" y="5" width="395" height="287"/>
+    <rect id="title-block" x="230" y="237" width="185" height="55"/>
+  </g>
+
+    <g transform="translate(230 237)">
+    <!-- Толстые внутренние линии штампа. -->
+    <g fill="none" stroke="black" stroke-width="0.7">
+      <!-- Разделитель левой и правой частей -->
+      <path d="M 65,0 V 55"/>
+      <!-- Низ блока изменений / верх блока подписей (на всю ширину) -->
+      <path d="M 0,25 H 185"/>
+      <!-- Верх строки заголовков изменений (только слева) -->
+      <path d="M 0,20 H 65"/>
+    </g>
+    <!-- Тонкие линии сетки. -->
+    <g fill="none" stroke="black" stroke-width="0.3">
+      <!-- Горизонтали левой части: строки по 5 мм -->
+      <path d="M 0,5 H 65 M 0,10 H 65 M 0,15 H 65"/>
+      <path d="M 0,30 H 65 M 0,35 H 65 M 0,40 H 65 M 0,45 H 65 M 0,50 H 65"/>
+      <!-- Вертикали зоны изменений (y=0..25): 10+10+10+10+15+10 -->
+      <path d="M 10,0 V 25 M 20,0 V 25 M 30,0 V 25 M 40,0 V 25 M 55,0 V 25"/>
+      <!-- Вертикали блока подписей (y=25..55): 20+20+15+10 -->
+      <path d="M 20,25 V 55 M 40,25 V 55 M 55,25 V 55"/>
+      <!-- Правая часть: низ обозначения, низ объекта -->
+      <path d="M 65,10 H 185"/>
+      <!-- Стадия / Лист / Листов: подписи и значения -->
+      <path d="M 135,25 V 55 M 150,25 V 40 M 165,25 V 40"/>
+      <path d="M 135,30 H 185"/>
+      <path d="M 65,40 H 185"/>
+    </g>
+    <g font-family="DejaVu Sans" fill="black">
+      <!-- Правая часть: обозначение, объект, название листа -->
+      <g text-anchor="middle">
+        <text x="125" y="7" font-size="2.5">AI-TEST-01-НВ</text>
+        <text x="125" y="19.5" font-size="2.5">Учебный участок водопровода</text>
+        <text x="100" y="35.5" font-size="2.5"><tspan x="100" y="35.5">Общие данные</tspan></text>
+        <text x="142.5" y="28.7" font-size="2.5">Стадия</text>
+        <text x="142.5" y="36.5" font-size="2.5">Р</text>
+        <text x="157.5" y="28.7" font-size="2.5">Лист</text>
+        <text x="157.5" y="36.5" font-size="2.5">1</text>
+        <text x="175" y="28.7" font-size="2.5">Листов</text>
+        <text x="175" y="36.5" font-size="2.5">3</text>
+      </g>
+      <!-- Заголовки граф изменений -->
+      <g text-anchor="middle" font-size="2.5">
+        <text x="5" y="23.7">Изм.</text>
+        <text x="15" y="23.7">Кол.уч.</text>
+        <text x="25" y="23.7">Лист</text>
+        <text x="35" y="23.7">№ док.</text>
+        <text x="47.5" y="23.7">Подп.</text>
+        <text x="60" y="23.7">Дата</text>
+      </g>
+      <!-- Роли в блоке подписей (колонка 20 мм) -->
+      <g text-anchor="start" font-size="2.5">
+        <text x="1.5" y="28.7">Разраб.</text>
+        <text x="1.5" y="33.7">Пров.</text>
+        <text x="1.5" y="48.7">Н. контр.</text>
+        <text x="1.5" y="53.7">ГИП</text>
+      </g>
+    </g>
+  </g>
+
+
+  <text x="217.5" y="18" text-anchor="middle"
+        font-family="DejaVu Sans" font-size="5">УЧЕБНЫЙ КОМПЛЕКТ</text>
+  <text id="paper-format" x="414" y="295.5" text-anchor="end"
+        font-family="DejaVu Sans" font-size="2.5">Формат A3</text>
+<g xmlns="http://www.w3.org/2000/svg" id="general-data" font-family="DejaVu Sans" fill="black">
+  <g font-size="3.5">
+    <text x="30" y="32">Ведомость рабочих чертежей основного комплекта</text>
+    <text x="30" y="92">Ведомость основных комплектов рабочих чертежей</text>
+    <text x="230" y="32">Ведомость ссылочных и прилагаемых документов</text>
+    <text x="30" y="143">Общие указания</text>
+    <text x="230" y="171">Принятые допущения</text>
+  </g>
+  <g id="drawing-register" transform="translate(30 37)"><g xmlns="http://www.w3.org/2000/svg" font-family="DejaVu Sans" fill="black">
+  <rect width="185" height="39" fill="none" stroke="black" stroke-width="0.5"/>
+  <path d="M 0,15 H 185 M 0,23 H 185 M 0,31 H 185 M 0,39 H 185 M 15,0 V 39 M 155,0 V 39" fill="none" stroke="black" stroke-width="0.3"/>
+  <text font-size="3.5"><tspan x="2.0" y="8.5">Лист</tspan></text>
+<text font-size="3.5"><tspan x="17.0" y="8.5">Наименование</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="8.5">Примечание</tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="20.0">1</tspan></text>
+<text font-size="3.5"><tspan x="17.0" y="20.0">Общие данные</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="20.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="28.0">2</tspan></text>
+<text font-size="3.5"><tspan x="17.0" y="28.0">План сетей водоснабжения</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="28.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="36.0">3</tspan></text>
+<text font-size="3.5"><tspan x="17.0" y="36.0">Профиль В1</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="36.0"></tspan></text>
+</g>
+</g>
+  <g transform="translate(30 97)"><g xmlns="http://www.w3.org/2000/svg" font-family="DejaVu Sans" fill="black">
+  <rect width="185" height="23" fill="none" stroke="black" stroke-width="0.5"/>
+  <path d="M 0,15 H 185 M 0,23 H 185 M 60,0 V 23 M 155,0 V 23" fill="none" stroke="black" stroke-width="0.3"/>
+  <text font-size="3.5"><tspan x="2.0" y="8.5">Обозначение</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="8.5">Наименование</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="8.5">Примечание</tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="20.0">AI-TEST-01-НВ</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="20.0">Наружные сети водоснабжения</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="20.0"></tspan></text>
+</g>
+</g>
+  <g id="reference-register" transform="translate(230 37)"><g xmlns="http://www.w3.org/2000/svg" font-family="DejaVu Sans" fill="black">
+  <rect width="185" height="103.0" fill="none" stroke="black" stroke-width="0.5"/>
+  <path d="M 0,15 H 185 M 0,23 H 185 M 0,35.0 H 185 M 0,47.0 H 185 M 0,59.0 H 185 M 0,67.0 H 185 M 0,75.0 H 185 M 0,83.0 H 185 M 0,91.0 H 185 M 0,103.0 H 185 M 60,0 V 103.0 M 155,0 V 103.0" fill="none" stroke="black" stroke-width="0.3"/>
+  <text font-size="3.5"><tspan x="2.0" y="8.5">Обозначение</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="8.5">Наименование</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="8.5">Примечание</tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="20.0"></tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="20.0">Ссылочные документы</tspan></text><path d="M 62.0,21.0 h 33.25" stroke="black" stroke-width="0.15"/>
+<text font-size="3.5"><tspan x="157.0" y="20.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="30.0">ГОСТ Р 21.101-2026</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="27.75">Основные требования к проектной и рабочей</tspan><tspan x="62.0" y="32.25">документации</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="30.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="42.0">ГОСТ 21.704-2011 (Изм. 1)</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="39.75">Рабочая документация наружных сетей</tspan><tspan x="62.0" y="44.25">водоснабжения и канализации</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="42.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="54.0">ГОСТ 21.110-2013</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="51.75">Спецификация оборудования, изделий и</tspan><tspan x="62.0" y="56.25">материалов</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="54.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="64.0">ГОСТ 21.206-2012</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="64.0">Условные обозначения трубопроводов</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="64.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="72.0">ГОСТ 2.303-68</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="72.0">Линии</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="72.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="80.0">ГОСТ 2.304-81</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="80.0">Шрифты чертежные</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="80.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="88.0"></tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="88.0">Прилагаемые документы</tspan></text><path d="M 62.0,89.0 h 36.75" stroke="black" stroke-width="0.15"/>
+<text font-size="3.5"><tspan x="157.0" y="88.0"></tspan></text>
+<text font-size="3.5"><tspan x="2.0" y="98.0">AI-TEST-01-НВ.СО</tspan></text>
+<text font-size="3.5"><tspan x="62.0" y="95.75">Спецификация оборудования, изделий и</tspan><tspan x="62.0" y="100.25">материалов</tspan></text>
+<text font-size="3.5"><tspan x="157.0" y="98.0"></tspan></text>
+</g>
+</g>
+  <g id="general-notes"><text font-size="3.5"><tspan x="30" y="152.0">Основанием для разработки является задание на проектирование.</tspan></text>
+<text font-size="3.5"><tspan x="30" y="158.5">Система координат условная, единицы — метры. Ось X направлена вправо, ось Y — вверх</tspan><tspan x="30" y="163.0">листа.</tspan></text>
+<text font-size="3.5"><tspan x="30" y="169.5">Проектируемая сеть В1 — подземный напорный водопровод из труб ПЭ 100 SDR 17 110×6,6.</tspan><tspan x="30" y="174.0">Длина трассы — 380,00 м.</tspan></text>
+<text font-size="3.5"><tspan x="30" y="180.5">Количество трубы равно длине по оси трассы в плане, без запаса и без вычета монтажных</tspan><tspan x="30" y="185.0">длин отводов.</tspan></text>
+<text font-size="3.5"><tspan x="30" y="191.5">В исходных данных заданы отметки оси трубопровода; на профиле показаны отметки низа</tspan><tspan x="30" y="196.0">трубы (ось минус половина наружного диаметра). На плане труба показана одной штриховой</tspan><tspan x="30" y="200.5">толстой линией; на профиле — одной сплошной толстой линией.</tspan></text></g>
+  <g id="general-assumptions"><g data-assumption-id="coordinate_system"><text font-size="3.5"><tspan x="230" y="180.0">Координаты — м; X вправо, Y вверх.</tspan></text></g>
+
+<g data-assumption-id="network_ground"><text font-size="3.5"><tspan x="230" y="186.5">В1 условно; земля проектная, натурная поверхность не задана.</tspan></text></g>
+
+<g data-assumption-id="bend_material"><text font-size="3.5"><tspan x="230" y="193.0">Материал и SDR отводов — как у трубы.</tspan></text></g>
+
+<g data-assumption-id="profile_insulation"><text font-size="3.5"><tspan x="230" y="199.5">Изоляция: Без изоляции; основание не задано.</tspan></text></g>
+
+<g data-assumption-id="missing_levels"><text font-size="3.5"><tspan x="230" y="206.0">Пропуски отметок не интерполируются.</tspan></text></g>
+
+<g data-assumption-id="pipe_quantity"><text font-size="3.5"><tspan x="230" y="212.5">Труба по оси трассы: без запаса и вычета отводов.</tspan></text></g>
+
+<g data-assumption-id="symbolic_bends"><text font-size="3.5"><tspan x="230" y="219.0">Условные отводы одной линией показаны углом.</tspan></text></g>
+
+<text font-size="3.5"><tspan x="230" y="225.5">Полный перечень допущений и ограничений — в отчёте о проверках.</tspan></text></g>
+</g>
+
+</svg>
