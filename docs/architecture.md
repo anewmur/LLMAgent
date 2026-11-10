@@ -15,10 +15,10 @@
 
 LLM ничего не считает и не рисует. 
 Длины, пикетаж, отметки, количества, чертежи и проверки выполняет код:
-- расчёты — `core/calculations.py`;
-- проверка входных данных — `core/validate.py`;
-- листы — `core/general.py`, `core/plan.py`, `core/profile.py`, `core/specification.py`;
-- проверки готовых файлов — `core/checks/`;
+- расчёты — `core/calculations.py`
+- проверка входных данных — `core/validate.py`
+- листы — `core/general.py`, `core/plan.py`, `core/profile.py`, `core/specification.py`
+- проверки готовых файлов — `core/checks/`
 - выпуск — `core/release.py`.
 
 Комплект собирается во временной папке, проверяется и только потом публикуется в `output/`. 
