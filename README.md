@@ -16,10 +16,8 @@
 
 ```powershell
 pip install llmagent-0.1.0-py3-none-any.whl
-llmagent
+python run.py
 ```
-
-Запускать из папки, где лежат `input/input.json` и ключ (см. ниже).
 
 ### Из репозитория
 
@@ -27,9 +25,9 @@ llmagent
 git clone https://github.com/anewmur/LLMAgent.git
 cd LLMAgent
 pip install -e ".[dev]"
-llmagent
-pytest
 ```
+
+Запускать из этой папки: рядом должны лежать `input/input.json` и `api_keys.env` с ключом (см. ниже). Вместо `python run.py` можно набрать `llmagent`.
 
 ## Ключ и модель
 
