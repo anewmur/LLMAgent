@@ -2,8 +2,12 @@ import copy
 import json
 
 import pytest
+from pathlib import Path
 
 from main import load_config
+
+
+(Path(__file__).resolve().parents[1] / 'tmp').mkdir(exist_ok=True)
 
 
 REFERENCE_ROUTE = {'object': {'name': 'Учебный участок водопровода',
