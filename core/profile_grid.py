@@ -152,10 +152,9 @@ class ProfileGrid:
         elements, occupied = [], []
         for index, section in enumerate(self.drawing.sections):
             start_x, end_x = self.point_x[index:index + 2]
-            if index:
-                elements.append(f'<line data-kind="slope-divider" x1="{start_x}" x2="{start_x}" '
-                                f'y1="{settings.PROFILE_BASE_ROW_BOTTOM_MM}" y2="{settings.PROFILE_SLOPE_ROW_BOTTOM_MM}" '
-                                f'stroke="black" stroke-width="{settings.PROFILE_GRID_LINE_WIDTH_MM}"/>')
+            elements.append(f'<line data-kind="slope-divider" x1="{start_x}" x2="{start_x}" '
+                            f'y1="{settings.PROFILE_BASE_ROW_BOTTOM_MM}" y2="{settings.PROFILE_SLOPE_ROW_BOTTOM_MM}" '
+                            f'stroke="black" stroke-width="{settings.PROFILE_GRID_LINE_WIDTH_MM}"/>')
             elements.append(self.draw_slope(start_x, end_x, section["slope_per_mille"]))
             for value, kind in [(format_slope(section["slope_per_mille"]), "slope"),
                                 (format_number(section["length_m"]), "slope-length"),

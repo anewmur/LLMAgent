@@ -69,7 +69,7 @@ def test_profile_slope_cells_show_direction_and_values(route_data, config):
     assert len(lines) == 5
     dividers = root.findall(".//s:line[@data-kind='slope-divider']", NS)
     assert [tuple(float(element.get(key)) for key in ["x1", "x2", "y1", "y2"]) for element in dividers] == [
-        (106, 106, 77, 99), (136, 136, 77, 99), (176, 176, 77, 99), (216, 216, 77, 99),
+        (76, 76, 77, 99), (106, 106, 77, 99), (136, 136, 77, 99), (176, 176, 77, 99), (216, 216, 77, 99),
     ]
     # В SVG координата Y растёт вниз. Первый участок поднимается на 2 м:
     # направление диагонали не должно зависеть от величины перепада.

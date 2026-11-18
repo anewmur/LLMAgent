@@ -123,6 +123,9 @@ class RouteSession:
             self.refuse_release(result)
         if "checks" in result:
             result["checks"] = [check.to_dict() for check in result["checks"]]
+        if result.get("released"):
+            result["length_m"] = calculate_route_geometry(self.project.points)["length_m"]
+            result["sheets"] = self.all_sheets()
         return result
 
     def load_route(self, path):
