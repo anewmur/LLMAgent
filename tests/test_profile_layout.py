@@ -116,7 +116,7 @@ def test_pipe_shelf_without_space_reports_warning_instead_of_missing_label(route
     for point in route_data["points"]:
         point["ground"] = 130
     project = Project.model_validate(route_data)
-    drawing = ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config)
+    drawing = ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config, vertical_scale=100)
     checks = profile_checks(project, config, drawing.render())
     assert any(check.name == "profile_shelf_space" and check.status == Status.WARNING for check in checks)
     assert not any(check.status == Status.ERROR for check in checks)

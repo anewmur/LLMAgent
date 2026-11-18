@@ -150,11 +150,12 @@ class ProfileGrid:
     def draw_sections(self):
         """Возвращает диагонали и разнесённые подписи уклонов, длин и расстояний."""
         elements, occupied = [], []
-        for index, section in enumerate(self.drawing.sections):
-            start_x, end_x = self.point_x[index:index + 2]
-            elements.append(f'<line data-kind="slope-divider" x1="{start_x}" x2="{start_x}" '
+        for divider_x in self.point_x[:len(self.drawing.sections) + 1]:
+            elements.append(f'<line data-kind="slope-divider" x1="{divider_x}" x2="{divider_x}" '
                             f'y1="{settings.PROFILE_BASE_ROW_BOTTOM_MM}" y2="{settings.PROFILE_SLOPE_ROW_BOTTOM_MM}" '
                             f'stroke="black" stroke-width="{settings.PROFILE_GRID_LINE_WIDTH_MM}"/>')
+        for index, section in enumerate(self.drawing.sections):
+            start_x, end_x = self.point_x[index:index + 2]
             elements.append(self.draw_slope(start_x, end_x, section["slope_per_mille"]))
             for value, kind in [(format_slope(section["slope_per_mille"]), "slope"),
                                 (format_number(section["length_m"]), "slope-length"),

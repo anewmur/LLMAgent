@@ -22,21 +22,23 @@ class ProfileDrawing:
 
     def __init__(self, project, document, config, font_size=DEFAULT_FONT_SIZE_MM,
                  horizontal_scale=None,
-                 vertical_scale=settings.PROFILE_VERTICAL_SCALE):
+                 vertical_scale=None):
         """Готовит геометрию и лист профиля в заданных масштабах."""
-        if (horizontal_scale is not None and horizontal_scale <= 0) or vertical_scale <= 0:
+        if (horizontal_scale is not None and horizontal_scale <= 0) or (vertical_scale is not None and vertical_scale <= 0):
             raise ValueError("Масштабы профиля должны быть положительными.")
         self.project, self.config = project, config
         self.style = ProfileStyle(font_size)
         self.style.check_table()
-        self.horizontal_scale, self.vertical_scale = horizontal_scale, vertical_scale
-        self.mm_per_meter_y = 1000 / self.vertical_scale
+        self.horizontal_scale = horizontal_scale
         self.prepare_data()
         self.sheet = Sheet(document["designation"], project.object.name, document["title"])
         self.horizontal_scale = horizontal_scale or self.choose_horizontal_scale()
         self.mm_per_meter_x = 1000 / self.horizontal_scale
         self.datum_y = (self.sheet.height - settings.PROFILE_TITLE_BLOCK_OFFSET_MM
                         - settings.PROFILE_GRID_BOTTOM_GAP_MM - settings.PROFILE_GRID_HEIGHT_MM)
+        self.vertical_scale = vertical_scale or self.choose_vertical_scale()
+        self.mm_per_meter_y = 1000 / self.vertical_scale
+        self.two_lines = pipe_line_count(self.project.pipe.outer_diameter_mm, self.vertical_scale) == 2
         self.origin_x, self.datum_level = self.place_profile()
 
     def prepare_data(self):
@@ -49,7 +51,6 @@ class ProfileDrawing:
         self.ground_levels = [point.ground for point in self.project.points]
         self.bottom_levels = [level["bottom_m"] for level in self.levels]
         self.top_levels = [None if value is None else value + diameter / 1000 for value in self.bottom_levels]
-        self.two_lines = pipe_line_count(diameter, self.vertical_scale) == 2
 
     def choose_horizontal_scale(self):
         """Выбирает крупнейший масштаб из ряда, при котором вся длина помещается в поле."""
@@ -57,6 +58,19 @@ class ProfileDrawing:
                      - settings.PROFILE_POINT_ORIGIN_MM - settings.PROFILE_GRID_RIGHT_PADDING_MM)
         return choose_scale((self.stations[-1],), (available,), settings.PROFILE_HORIZONTAL_SCALES,
                             settings.PROFILE_FIT_ERROR)
+
+    def choose_vertical_scale(self):
+        """Выбирает крупнейший вертикальный масштаб, при котором земля, труба и глубины помещаются в поле."""
+        bottom = [value for value in self.bottom_levels if value is not None]
+        upper = [value for value in self.ground_levels + self.top_levels if value is not None]
+        if not bottom:
+            return settings.PROFILE_VERTICAL_SCALES[0]
+        available = (self.datum_y - settings.PROFILE_TEXT_TOP_MM - settings.PROFILE_LOWEST_PIPE_GAP_MM
+                     - settings.PROFILE_DEPTH_LABEL_RESERVE_MM)
+        extent = (max(upper) - min(bottom)) * 1000
+        # Если не помещается даже в мелком масштабе, берём его, а вылет покажут проверки поля.
+        return next((scale for scale in settings.PROFILE_VERTICAL_SCALES if extent / scale <= available),
+                    settings.PROFILE_VERTICAL_SCALES[-1])
 
     def place_profile(self):
         """Прижимает низ трубы к таблице и возвращает начало пикетажа и условный горизонт."""

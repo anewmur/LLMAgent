@@ -1,3 +1,4 @@
+from config import drawing_settings
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -70,7 +71,9 @@ def test_point_update_is_release_without_false_claim_warning(input_file, tmp_pat
     assert "WARNING" not in capsys.readouterr().out
 
 
-def test_load_is_sufficient_release_and_warnings_reach_model(input_file, tmp_path, config):
+def test_load_is_sufficient_release_and_warnings_reach_model(input_file, tmp_path, config, monkeypatch):
+    # Фиксируем 1:100 по вертикали, чтобы толстая труба давала настоящие предупреждения вёрстки.
+    monkeypatch.setattr(drawing_settings, "PROFILE_VERTICAL_SCALES", (100,))
     session = RouteSession(input_file, tmp_path / "output", config)
     client = Mock()
     def complete(**arguments):

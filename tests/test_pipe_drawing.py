@@ -84,7 +84,7 @@ def test_crowded_bend_warns_and_package_is_published(route_data, config, tmp_pat
     assert "пп. 3.5, 3.7" in report and "пп. 3.8, 3.9, 3.11" in report
     assert "табл. 1, п. 8в" in report
     items = load_assumptions(
-        config, project, 100,
+        config, project, ProfileDrawing(project, DocumentSet(project, config).get(DocumentId.PROFILE), config).vertical_scale,
         PlanDrawing(project, DocumentSet(project, config).get(DocumentId.PLAN)).scale,
     )
     assert all(item.full in report for item in items)

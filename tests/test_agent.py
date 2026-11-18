@@ -1,3 +1,4 @@
+from config import drawing_settings
 import json
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -393,7 +394,9 @@ def test_agent_clarifies_bend_and_repeats_rejected_point_addition(route_data, wr
     assert session.tool_log[1]["result"]["status"] in ("ok", "warning")
 
 
-def test_release_request_loads_then_releases_and_reports_real_warnings(input_file, tmp_path, config):
+def test_release_request_loads_then_releases_and_reports_real_warnings(input_file, tmp_path, config, monkeypatch):
+    # Фиксируем 1:100 по вертикали, чтобы толстая труба давала настоящие предупреждения вёрстки.
+    monkeypatch.setattr(drawing_settings, "PROFILE_VERTICAL_SCALES", (100,))
     session = RouteSession(input_file, tmp_path / "output", config)
     client = Mock()
     def final_response(**arguments):
